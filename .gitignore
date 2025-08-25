@@ -1,1 +1,19 @@
 /.claude
+
+# Configuration files with sensitive data
+.config/
+*.config
+*-config
+*-config.json
+claude-code-config.json
+
+# Output files
+TFS-Daily-Summary.html
+TFS-Daily-Summary.txt
+TFS-Debug-Data.txt
+
+# Temporary files
+*.tmp
+temp_*
+claude_*_request*
+claude_*_response*

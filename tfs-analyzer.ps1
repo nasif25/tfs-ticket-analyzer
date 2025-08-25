@@ -24,8 +24,14 @@ param(
     [switch]$VerboseOutput = $false
 )
 
-$ConfigFile = "$env:USERPROFILE\.tfs-analyzer-config"
-$ClaudeConfigFile = "$env:USERPROFILE\.tfs-analyzer-claude-config"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ConfigFile = "$ScriptDir\.config\.tfs-analyzer-config"
+$ClaudeConfigFile = "$ScriptDir\.config\.tfs-analyzer-claude-config"
+
+# Ensure .config directory exists
+if (-not (Test-Path "$ScriptDir\.config")) {
+    New-Item -ItemType Directory -Path "$ScriptDir\.config" -Force | Out-Null
+}
 
 # Colors for output
 $Colors = @{
@@ -43,8 +49,9 @@ function Write-ColorOutput {
 }
 
 function Write-DebugOutput {
-    param([string]$Message)
-    if ($Details -or $VerbosePreference -eq 'Continue') {
+    param([string]$Message, [switch]$ShowDetails = $false)
+    # Global script-level variable $script:Details should be used
+    if ($ShowDetails -or $script:Details -or $VerbosePreference -eq 'Continue') {
         Write-Host "[DEBUG] $Message" -ForegroundColor Magenta
     }
 }
@@ -80,79 +87,6 @@ function Test-ClaudeCodeAvailability {
     }
 }
 
-function Test-ClaudeConfiguration {
-    Write-ColorOutput "Testing Claude AI configuration..." "Info"
-    
-    # Step 1: Test Claude Code CLI availability
-    Write-DebugOutput "Step 1: Testing Claude Code CLI availability"
-    $claudeAvailable = Test-ClaudeCodeAvailability
-    if (-not $claudeAvailable) {
-        Write-ColorOutput "❌ Claude Code CLI not found" "Error"
-        Write-Host "Solution: Install Claude Code from https://claude.ai/code"
-        return $false
-    }
-    Write-ColorOutput "✅ Claude Code CLI found" "Success"
-    
-    # Step 2: Test authentication
-    Write-DebugOutput "Step 2: Testing authentication methods"
-    $azureCliAuth = Test-AzureCliAuthentication
-    $config = Load-Configuration
-    $patAvailable = -not [string]::IsNullOrWhiteSpace($config.PAT)
-    
-    if ($azureCliAuth) {
-        Write-ColorOutput "✅ Azure CLI authentication verified" "Success"
-    } elseif ($patAvailable) {
-        Write-ColorOutput "✅ PAT authentication available" "Success"
-    } else {
-        Write-ColorOutput "❌ No valid authentication method found" "Error"
-        Write-Host "Solution: Run 'az login' or ensure PAT is configured"
-        return $false
-    }
-    
-    # Step 3: Test Azure DevOps connectivity
-    Write-DebugOutput "Step 3: Testing Azure DevOps connectivity"
-    try {
-        $headers = Get-Headers -Config $config
-        if ($headers) {
-            Write-ColorOutput "✅ Azure DevOps connectivity verified" "Success"
-        } else {
-            Write-ColorOutput "❌ Azure DevOps connectivity failed" "Error"
-            return $false
-        }
-    } catch {
-        Write-ColorOutput "❌ Azure DevOps connectivity failed: $($_.Exception.Message)" "Error"
-        return $false
-    }
-    
-    # Step 4: Test Claude Code MCP server configuration
-    Write-DebugOutput "Step 4: Testing Claude Code MCP configuration"
-    $mcpConfigPath = "$env:USERPROFILE\.claude\claude_desktop_config.json"
-    $mcpAlternatePath = "$PSScriptRoot\claude-code-config.json"
-    
-    $mcpConfigExists = (Test-Path $mcpConfigPath) -or (Test-Path $mcpAlternatePath)
-    if ($mcpConfigExists) {
-        Write-ColorOutput "✅ Claude Code MCP configuration found" "Success"
-    } else {
-        Write-ColorOutput "⚠️  Claude Code MCP configuration not found, will create during setup" "Warning"
-    }
-    
-    # Step 5: Test Claude Code connection (optional quick test)
-    Write-DebugOutput "Step 5: Testing Claude Code basic functionality"
-    try {
-        $testResult = claude --help 2>$null
-        if ($testResult) {
-            Write-ColorOutput "✅ Claude Code basic functionality verified" "Success"
-        } else {
-            Write-ColorOutput "⚠️  Claude Code basic test inconclusive" "Warning"
-        }
-    } catch {
-        Write-ColorOutput "⚠️  Claude Code basic test failed: $($_.Exception.Message)" "Warning"
-    }
-    
-    Write-Host ""
-    Write-ColorOutput "Claude AI configuration test completed!" "Success"
-    return $true
-}
 
 function Setup-ClaudeConfiguration {
     Write-ColorOutput "Setting up Claude AI integration..." "Info"
@@ -163,9 +97,9 @@ function Setup-ClaudeConfiguration {
     Write-DebugOutput "Testing Claude Code availability..."
     $claudeAvailable = Test-ClaudeCodeAvailability
     if (-not $claudeAvailable) {
-        Write-ColorOutput "❌ Claude Code CLI not found. Please install Claude Code first:" "Error"
+        Write-ColorOutput "[ERROR] Claude Code CLI not found. Please install Claude Code first:" "Error"
         Write-Host ""
-        Write-Host "📥 Installation Steps:"
+        Write-Host "Installation Installation Steps:"
         Write-Host "1. Visit: https://claude.ai/code"
         Write-Host "2. Download and install Claude Code"
         Write-Host "3. Follow the setup instructions"
@@ -174,23 +108,23 @@ function Setup-ClaudeConfiguration {
         Write-Host ""
         return $false
     }
-    Write-ColorOutput "✅ Claude Code CLI found" "Success"
+    Write-ColorOutput "[OK] Claude Code CLI found" "Success"
     
     # Step 2: Load existing configuration
     try {
         $config = Load-Configuration
     } catch {
-        Write-ColorOutput "❌ Main configuration not found. Please run: .\tfs-analyzer.ps1 setup" "Error"
+        Write-ColorOutput "[ERROR] Main configuration not found. Please run: .\tfs-analyzer.ps1 setup" "Error"
         return $false
     }
     
     Write-Host ""
-    Write-ColorOutput "📋 Claude AI Features:" "Info"
-    Write-Host "• Intelligent priority assessment with AI reasoning"
-    Write-Host "• Smart content summarization and key point extraction"
-    Write-Host "• Actionable recommendations for next steps"
-    Write-Host "• Impact analysis and risk assessment"
-    Write-Host "• Enhanced decision tracking from ticket history"
+    Write-ColorOutput "Claude AI Features Claude AI Features:" "Info"
+    Write-Host "- Intelligent priority assessment with AI reasoning"
+    Write-Host "- Smart content summarization and key point extraction"
+    Write-Host "- Actionable recommendations for next steps"
+    Write-Host "- Impact analysis and risk assessment"
+    Write-Host "- Enhanced decision tracking from ticket history"
     Write-Host ""
     
     $enableClaude = Read-Host "Enable Claude AI analysis by default? (y/n)"
@@ -198,7 +132,7 @@ function Setup-ClaudeConfiguration {
     
     # Step 3: Configure authentication
     Write-Host ""
-    Write-ColorOutput "🔐 Authentication Configuration:" "Info"
+    Write-ColorOutput "Authentication Configuration Authentication Configuration:" "Info"
     Write-Host "Claude Code supports multiple authentication methods:"
     Write-Host "1. Azure CLI (Recommended) - Uses your current Azure login"
     Write-Host "2. Personal Access Token - Uses stored PAT from main config"
@@ -208,17 +142,17 @@ function Setup-ClaudeConfiguration {
     $azureCliAuth = Test-AzureCliAuthentication
     $patAvailable = -not [string]::IsNullOrWhiteSpace($config.PAT)
     
-    Write-Host "📊 Authentication Status:"
+    Write-Host "Authentication Status Authentication Status:"
     if ($azureCliAuth) {
-        Write-ColorOutput "✅ Azure CLI: Authenticated and ready" "Success"
+        Write-ColorOutput "[OK] Azure CLI: Authenticated and ready" "Success"
     } else {
-        Write-ColorOutput "❌ Azure CLI: Not authenticated (run 'az login')" "Warning"
+        Write-ColorOutput "[ERROR] Azure CLI: Not authenticated (run 'az login --allow-no-subscriptions')" "Warning"
     }
     
     if ($patAvailable) {
-        Write-ColorOutput "✅ PAT: Available from main configuration" "Success"
+        Write-ColorOutput "[OK] PAT: Available from main configuration" "Success"
     } else {
-        Write-ColorOutput "❌ PAT: Not configured" "Warning"
+        Write-ColorOutput "[ERROR] PAT: Not configured" "Warning"
     }
     
     Write-Host ""
@@ -226,32 +160,32 @@ function Setup-ClaudeConfiguration {
     $useAzureCli = $authChoice -eq "1"
     
     if ($useAzureCli -and -not $azureCliAuth) {
-        Write-ColorOutput "⚠️  Azure CLI selected but not authenticated." "Warning"
-        Write-Host "Please run: az login"
+        Write-ColorOutput "[WARNING]  Azure CLI selected but not authenticated." "Warning"
+        Write-Host "Please run: az login --allow-no-subscriptions"
         Write-Host ""
         $continueAnyway = Read-Host "Continue with PAT as fallback? (y/n)"
         if ($continueAnyway -ne "y" -and $continueAnyway -ne "Y") {
-            Write-ColorOutput "Setup cancelled. Please run 'az login' and try again." "Warning"
+            Write-ColorOutput "Setup cancelled. Please run 'az login --allow-no-subscriptions' and try again." "Warning"
             return $false
         }
         $useAzureCli = $false
     }
     
     if (-not $useAzureCli -and -not $patAvailable) {
-        Write-ColorOutput "❌ No valid authentication method available." "Error"
+        Write-ColorOutput "[ERROR] No valid authentication method available." "Error"
         Write-Host "Please either:"
-        Write-Host "1. Run 'az login' to authenticate Azure CLI, or"
+        Write-Host "1. Run 'az login --allow-no-subscriptions' to authenticate Azure CLI, or"
         Write-Host "2. Run '.\tfs-analyzer.ps1 setup' to configure PAT"
         return $false
     }
     
     # Step 4: Configure Azure DevOps Organization URL
     Write-Host ""
-    Write-ColorOutput "🔗 Azure DevOps Configuration:" "Info"
+    Write-ColorOutput "Azure DevOps Configuration Azure DevOps Configuration:" "Info"
     $azureDevOpsOrgUrl = Read-Host "Enter your Azure DevOps Organization URL"
     
     if ([string]::IsNullOrWhiteSpace($azureDevOpsOrgUrl)) {
-        Write-ColorOutput "❌ Azure DevOps Organization URL is required for Claude AI integration." "Error"
+        Write-ColorOutput "[ERROR] Azure DevOps Organization URL is required for Claude AI integration." "Error"
         return $false
     }
     
@@ -259,10 +193,10 @@ function Setup-ClaudeConfiguration {
     try {
         $uri = [System.Uri]$azureDevOpsOrgUrl
         if ($uri.Scheme -ne "https") {
-            Write-ColorOutput "⚠️  Warning: HTTPS is recommended for security" "Warning"
+            Write-ColorOutput "[WARNING]  Warning: HTTPS is recommended for security" "Warning"
         }
     } catch {
-        Write-ColorOutput "❌ Invalid URL format. Please enter a valid Azure DevOps URL." "Error"
+        Write-ColorOutput "[ERROR] Invalid URL format. Please enter a valid Azure DevOps URL." "Error"
         return $false
     }
     
@@ -281,38 +215,38 @@ function Setup-ClaudeConfiguration {
         $configLines += "$key=$($claudeConfig[$key])"
     }
     $configLines -join "`n" | Out-File -FilePath $ClaudeConfigFile -Encoding UTF8
-    Write-ColorOutput "✅ Claude AI configuration saved" "Success"
+    Write-ColorOutput "[OK] Claude AI configuration saved" "Success"
     
     # Step 6: Create Claude Code MCP server configuration
     Write-DebugOutput "Setting up Claude Code MCP server configuration..."
     $mcpSuccess = Setup-ClaudeCodeMcpConfig -AzureDevOpsUrl $azureDevOpsOrgUrl -UseAzureCli $useAzureCli
     if (-not $mcpSuccess) {
-        Write-ColorOutput "⚠️  Claude Code MCP configuration failed, but Claude AI is still configured" "Warning"
+        Write-ColorOutput "[WARNING]  Claude Code MCP configuration failed, but Claude AI is still configured" "Warning"
     }
     
     # Step 7: Run comprehensive verification
     Write-Host ""
-    Write-ColorOutput "🧪 Running Configuration Verification..." "Info"
+    Write-ColorOutput "Running Configuration Verification Running Configuration Verification..." "Info"
     $verificationPassed = Test-ClaudeConfiguration
     
     if ($verificationPassed) {
         Write-Host ""
-        Write-ColorOutput "🎉 Claude AI integration setup completed successfully!" "Success"
+        Write-ColorOutput "[SUCCESS] Claude AI integration setup completed successfully!" "Success"
         Write-Host ""
-        Write-Host "📝 Next Steps:"
-        Write-Host "• Test with: .\tfs-analyzer.ps1 1 -Claude -Browser"
-        Write-Host "• Use -Details flag for troubleshooting if needed"
-        Write-Host "• Run 'test-auth' to verify authentication setup"
+        Write-Host "Next Steps Next Steps:"
+        Write-Host "- Test with: .\tfs-analyzer.ps1 1 -Claude -Browser"
+        Write-Host "- Use -Details flag for troubleshooting if needed"
+        Write-Host "- Run 'test-auth' to verify authentication setup"
         Write-Host ""
-        Write-Host "🚀 Claude AI is now ready to enhance your ticket analysis!"
+        Write-Host "Ready! Claude AI is now ready to enhance your ticket analysis!"
     } else {
-        Write-ColorOutput "⚠️  Setup completed with warnings. Some features may not work properly." "Warning"
+        Write-ColorOutput "[WARNING]  Setup completed with warnings. Some features may not work properly." "Warning"
         Write-Host ""
-        Write-Host "🛠️  Troubleshooting Tips:"
-        Write-Host "• Run: .\tfs-analyzer.ps1 test-claude"
-        Write-Host "• Check authentication with: az login"
-        Write-Host "• Verify Claude Code installation"
-        Write-Host "• Use -Details flag for debug information"
+        Write-Host "Troubleshooting Tips  Troubleshooting Tips:"
+        Write-Host "- Run: .\tfs-analyzer.ps1 test-claude"
+        Write-Host "- Check authentication with: az login --allow-no-subscriptions"
+        Write-Host "- Verify Claude Code installation"
+        Write-Host "- Use -Details flag for debug information"
     }
     
     return $true
@@ -326,7 +260,7 @@ function Setup-ClaudeCodeMcpConfig {
     
     Write-ColorOutput "Setting up Claude Code MCP server configuration..." "Info"
     
-    $claudeCodeConfigPath = "$PSScriptRoot\claude-code-config.json"
+    $claudeCodeConfigPath = "$ScriptDir\.config\claude-code-config.json"
     
     $configContent = @"
 {
@@ -343,9 +277,9 @@ function Setup-ClaudeCodeMcpConfig {
 "@
     
     $configContent | Out-File -FilePath $claudeCodeConfigPath -Encoding UTF8
-    Write-ColorOutput "✅ Claude Code MCP configuration created" "Success"
-    Write-Host "• Configuration saved to: $claudeCodeConfigPath"
-    Write-Host "• Azure DevOps Organization: $AzureDevOpsUrl"
+    Write-ColorOutput "[OK] Claude Code MCP configuration created" "Success"
+    Write-Host "- Configuration saved to: $claudeCodeConfigPath"
+    Write-Host "- Azure DevOps Organization: $AzureDevOpsUrl"
     
     return $true
 }
@@ -703,21 +637,21 @@ function Save-TextSummary {
                     if ($Analysis.KeyPoints.Count -gt 0) {
                         $TextLines += "Key Points:"
                         foreach ($KeyPoint in $Analysis.KeyPoints) {
-                            $TextLines += "  • $KeyPoint"
+                            $TextLines += "  - $KeyPoint"
                         }
                     }
                     
                     if ($Analysis.Decisions.Count -gt 0) {
                         $TextLines += "Recent Decisions:"
                         foreach ($Decision in $Analysis.Decisions) {
-                            $TextLines += "  → $Decision"
+                            $TextLines += "  > $Decision"
                         }
                     }
                     
                     if ($Analysis.NextSteps.Count -gt 0) {
                         $TextLines += "Action Items:"
                         foreach ($NextStep in $Analysis.NextSteps) {
-                            $TextLines += "  ▶ $NextStep"
+                            $TextLines += "  > $NextStep"
                         }
                     }
                 }
@@ -774,13 +708,13 @@ function Setup-Configuration {
             # Test Azure CLI authentication
             $azureCliAuth = Test-AzureCliAuthentication
             if (-not $azureCliAuth) {
-                Write-ColorOutput "Azure CLI not authenticated. Please run 'az login' first." "Warning"
-                $fallbackChoice = Read-Host "Do you want to: (1) Exit and run 'az login', (2) Use PAT instead"
+                Write-ColorOutput "Azure CLI not authenticated. Please run 'az login --allow-no-subscriptions' first." "Warning"
+                $fallbackChoice = Read-Host "Do you want to: (1) Exit and run 'az login --allow-no-subscriptions', (2) Use PAT instead"
                 if ($fallbackChoice -eq "2") {
                     $UseAzureCli = $false
                     Write-ColorOutput "Switching to PAT authentication..." "Info"
                 } else {
-                    Write-ColorOutput "Please run 'az login' and run setup again." "Info"
+                    Write-ColorOutput "Please run 'az login --allow-no-subscriptions' and run setup again." "Info"
                     return
                 }
             } else {
@@ -1195,54 +1129,97 @@ function Get-EnhancedWorkItemAnalysis {
     return $analysis
 }
 
+function Invoke-TfsRestMethod {
+    param(
+        [string]$Uri,
+        [hashtable]$Config,
+        [string]$Method = "GET",
+        [string]$Body = $null
+    )
+    
+    $Headers = @{ 'Content-Type' = 'application/json' }
+    
+    # Check authentication method and call accordingly
+    if ($Config.USE_WINDOWS_AUTH -eq 'True') {
+        Write-DebugOutput "Making request with Windows authentication"
+        if ($Body) {
+            return Invoke-RestMethod -Uri $Uri -Method $Method -Body $Body -Headers $Headers -UseDefaultCredentials
+        } else {
+            return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $Headers -UseDefaultCredentials
+        }
+    }
+    
+    # Check if Azure CLI is authenticated (for Azure AD integrated TFS)
+    try {
+        $accountInfo = az account show 2>$null | ConvertFrom-Json
+        if ($accountInfo -and $accountInfo.user -and $accountInfo.user.name) {
+            Write-DebugOutput "Making request with Azure CLI authenticated credentials"
+            if ($Body) {
+                return Invoke-RestMethod -Uri $Uri -Method $Method -Body $Body -Headers $Headers -UseDefaultCredentials
+            } else {
+                return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $Headers -UseDefaultCredentials
+            }
+        }
+    } catch {
+        Write-DebugOutput "Azure CLI check exception: $($_.Exception.Message)"
+    }
+    
+    # Fallback to PAT authentication
+    if ($Config.PAT -and $Config.PAT.Trim() -ne "") {
+        Write-DebugOutput "Making request with PAT authentication"
+        $AuthString = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($Config.PAT)"))
+        $Headers['Authorization'] = "Basic $AuthString"
+        if ($Body) {
+            return Invoke-RestMethod -Uri $Uri -Method $Method -Body $Body -Headers $Headers
+        } else {
+            return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $Headers
+        }
+    }
+    
+    throw "No valid authentication method available"
+}
+
 function Get-Headers {
     param([hashtable]$Config)
     
     if ($Config.USE_WINDOWS_AUTH -eq 'True') {
+        Write-DebugOutput "Using Windows authentication"
         return @{ 'Content-Type' = 'application/json' }
-    } elseif ($Config.USE_AZURE_CLI -eq 'True') {
-        try {
-            Write-DebugOutput "Getting Azure CLI access token..."
-            $tokenResult = az account get-access-token --resource https://dev.azure.com --query accessToken --output tsv 2>$null
-            
-            if ($tokenResult -and $tokenResult.Trim() -ne "") {
-                Write-DebugOutput "Azure CLI access token obtained successfully"
-                return @{
-                    'Content-Type' = 'application/json'
-                    'Authorization' = "Bearer $($tokenResult.Trim())"
-                }
-            } else {
-                Write-DebugOutput "Failed to get Azure CLI access token, falling back to PAT"
-                throw "Azure CLI token failed"
-            }
-        } catch {
-            Write-DebugOutput "Azure CLI authentication failed: $($_.Exception.Message)"
-            
-            # Fallback to PAT if available
-            if ($Config.PAT -and $Config.PAT.Trim() -ne "") {
-                Write-DebugOutput "Falling back to PAT authentication"
-                $AuthString = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($Config.PAT)"))
-                return @{
-                    'Content-Type' = 'application/json'
-                    'Authorization' = "Basic $AuthString"
-                }
-            } else {
-                Write-ColorOutput "Azure CLI authentication failed and no PAT configured. Please run 'az login' or configure a PAT." "Error"
-                throw "No valid authentication method available"
-            }
+    } 
+    
+    # Check if Azure CLI is authenticated (for Azure AD integrated TFS)
+    Write-DebugOutput "Checking Azure CLI authentication status..."
+    try {
+        $accountInfo = az account show 2>$null | ConvertFrom-Json
+        if ($accountInfo -and $accountInfo.user -and $accountInfo.user.name) {
+            Write-DebugOutput "Azure CLI is authenticated as: $($accountInfo.user.name)"
+            Write-DebugOutput "Using Azure CLI authenticated Windows credentials"
+            return @{ 'Content-Type' = 'application/json' }
+        } else {
+            Write-DebugOutput "Azure CLI not authenticated"
         }
-    } else {
-        if (-not $Config.PAT -or $Config.PAT.Trim() -eq "") {
-            Write-ColorOutput "No PAT configured. Please run setup." "Error"
-            throw "No PAT configured"
-        }
-        
+    } catch {
+        Write-DebugOutput "Azure CLI check exception: $($_.Exception.Message)"
+    }
+    
+    # Fallback to PAT authentication
+    Write-DebugOutput "Attempting PAT authentication..."
+    if ($Config.PAT -and $Config.PAT.Trim() -ne "") {
+        Write-DebugOutput "Using PAT authentication"
         $AuthString = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($Config.PAT)"))
         return @{
             'Content-Type' = 'application/json'
             'Authorization' = "Basic $AuthString"
         }
+    } else {
+        Write-DebugOutput "No PAT configured in config"
     }
+    
+    # No authentication method available
+    Write-ColorOutput "[ERROR] No valid authentication method available." "Error"
+    Write-ColorOutput "Azure CLI test result was: '$tokenResult'" "Error"
+    Write-ColorOutput "Please run 'az login --allow-no-subscriptions' or configure a PAT during setup." "Error"
+    throw "No valid authentication method available"
 }
 
 function Get-PriorityLevel {
@@ -1332,12 +1309,12 @@ function Get-ActionRecommendation {
 }
 
 function Get-WorkItemComments {
-    param([hashtable]$Config, [string]$WorkItemId, [string]$TfsUrl, [string]$ProjectName, [hashtable]$Headers)
+    param([hashtable]$Config, [string]$WorkItemId, [string]$TfsUrl, [string]$ProjectName)
     
     try {
         # Try the comments API first (newer TFS versions)
         $CommentsUrl = "$TfsUrl/$ProjectName/_apis/wit/workItems/$WorkItemId/comments?api-version=6.0"
-        $CommentsResponse = Invoke-RestMethod -Uri $CommentsUrl -Headers $Headers -ErrorAction Stop
+        $CommentsResponse = Invoke-TfsRestMethod -Uri $CommentsUrl -Config $Config
         
         $RecentComments = @()
         if ($CommentsResponse.comments -and $CommentsResponse.comments.Count -gt 0) {
@@ -1356,7 +1333,7 @@ function Get-WorkItemComments {
         # If comments API fails, try to get work item history (fallback for older TFS)
         try {
             $HistoryUrl = "$TfsUrl/$ProjectName/_apis/wit/workItems/$WorkItemId/updates?api-version=6.0"
-            $HistoryResponse = Invoke-RestMethod -Uri $HistoryUrl -Headers $Headers -ErrorAction Stop
+            $HistoryResponse = Invoke-TfsRestMethod -Uri $HistoryUrl -Config $Config
             
             $RecentComments = @()
             if ($HistoryResponse.value) {
@@ -1571,12 +1548,12 @@ function Analyze-TicketContent {
             $WordCount = ($Content -split '\s+').Count
             
             # Analyze content structure and format accordingly
-            if ($Content -match '[-•*]\s+' -or $Content -match '\d+\.\s+' -or $Content -match '\n\s*[-•*\d]') {
+            if ($Content -match '[--*]\s+' -or $Content -match '\d+\.\s+' -or $Content -match '\n\s*[--*\d]') {
                 # Handle structured lists/bullet points
                 $Points = @()
                 
                 # Split by various list indicators
-                $ListItems = $Content -split '[-•*]\s+|\d+\.\s+|\n\s*[-•*\d]\s*' | Where-Object { 
+                $ListItems = $Content -split '[--*]\s+|\d+\.\s+|\n\s*[--*\d]\s*' | Where-Object { 
                     $_ -ne $null -and $_.GetType().Name -eq 'String' -and $_.ToString().Trim().Length -gt 8
                 }
                 
@@ -1798,6 +1775,9 @@ function Analyze-Tickets {
     $SendEmail = $Email -or $SendEmail
     $Details = $Details -or $VerboseOutput
     
+    # Set script-level variable for debug output
+    $script:Details = $Details
+    
     # Determine Claude usage (simplified)
     $shouldUseClaude = $false
     if ($Claude -or $UseClaude) {
@@ -1874,11 +1854,11 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
     try {
         # Get assigned tickets
         Write-ColorOutput "Fetching assigned tickets..." "Info"
-        $AssignedResponse = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/wiql?api-version=6.0" -Method Post -Body $AssignedQuery -Headers $Headers
+        $AssignedResponse = Invoke-TfsRestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/wiql?api-version=6.0" -Method Post -Body $AssignedQuery -Config $Config
         
         if ($AssignedResponse.workItems -and $AssignedResponse.workItems.Count -gt 0) {
             $AssignedIds = ($AssignedResponse.workItems | ForEach-Object { $_.id }) -join ','
-            $AssignedDetails = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$AssignedIds`&api-version=6.0" -Headers $Headers
+            $AssignedDetails = Invoke-TfsRestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$AssignedIds`&api-version=6.0" -Config $Config
             
             foreach ($Item in $AssignedDetails.value) {
                 $AllTickets += @{
@@ -1890,11 +1870,11 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
         
         # Get @mentioned tickets
         Write-ColorOutput "Fetching @mentioned tickets..." "Info"
-        $MentionResponse = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/wiql?api-version=6.0" -Method Post -Body $MentionQuery -Headers $Headers
+        $MentionResponse = Invoke-TfsRestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/wiql?api-version=6.0" -Method Post -Body $MentionQuery -Config $Config
         
         if ($MentionResponse.workItems -and $MentionResponse.workItems.Count -gt 0) {
             $MentionIds = ($MentionResponse.workItems | ForEach-Object { $_.id }) -join ','
-            $MentionDetails = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$MentionIds`&api-version=6.0" -Headers $Headers
+            $MentionDetails = Invoke-TfsRestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$MentionIds`&api-version=6.0" -Config $Config
             
             foreach ($Item in $MentionDetails.value) {
                 $ExistingItem = $AllTickets | Where-Object { $_.Item.id -eq $Item.id }
@@ -1917,6 +1897,10 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
         # Analyze priorities, actions, and content
         $analysisType = if ($shouldUseClaude) { "AI-enhanced" } else { "traditional" }
         Write-ColorOutput "Performing $analysisType ticket analysis..." "Info"
+        if ($shouldUseClaude) {
+            Write-ColorOutput "Claude AI will analyze each ticket for enhanced insights..." "Info"
+            Write-Host "  [INFO] This may take a few minutes depending on ticket count and complexity" -ForegroundColor Gray
+        }
         
         # Create debug file for raw data analysis
         $DebugPath = "$env:USERPROFILE\Documents\TFS-Debug-Data.txt"
@@ -1928,8 +1912,16 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
         $DebugLines += "=".PadRight(80, '=')
         $DebugLines += ""
         
+        $ticketCounter = 0
         foreach ($TicketData in $AllTickets) {
             $TicketId = $TicketData.Item.id
+            $ticketCounter++
+            
+            # Show progress for AI analysis
+            if ($shouldUseClaude) {
+                Write-Host "  [AI] Analyzing ticket #$TicketId ($ticketCounter/$($AllTickets.Count))..." -ForegroundColor Cyan -NoNewline
+            }
+            
             $DebugLines += "TICKET #$TicketId ($($TicketData.Source))"
             $DebugLines += "-".PadRight(50, '-')
             
@@ -1956,7 +1948,7 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
             # Get comments and show raw comment data
             $DebugLines += ""
             $DebugLines += "FETCHING COMMENTS..."
-            $Comments = Get-WorkItemComments -Config $Config -WorkItemId $TicketData.Item.id -TfsUrl $TfsUrl -ProjectName $ProjectName -Headers $Headers
+            $Comments = Get-WorkItemComments -Config $Config -WorkItemId $TicketData.Item.id -TfsUrl $TfsUrl -ProjectName $ProjectName
             
             if ($Comments -and $Comments.Count -gt 0) {
                 $DebugLines += "COMMENTS FOUND: $($Comments.Count)"
@@ -1978,6 +1970,11 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
             
             # Run enhanced analysis (Claude or traditional)
             $enhancedAnalysis = Get-EnhancedWorkItemAnalysis -Config $Config -WorkItemData $TicketData.Item -Comments $Comments -Source $TicketData.Source -UseClaude $shouldUseClaude
+            
+            # Show completion for AI analysis
+            if ($shouldUseClaude) {
+                Write-Host " Done" -ForegroundColor Green
+            }
             
             $Priority = $enhancedAnalysis.Priority
             $Action = $enhancedAnalysis.Action
@@ -2006,6 +2003,12 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
             $TicketData.ContentAnalysis = $ContentAnalysis
             $TicketData.Comments = $Comments
             $TicketData.Enhanced = $enhancedAnalysis.Enhanced
+        }
+        
+        # Show completion message for AI analysis
+        if ($shouldUseClaude) {
+            Write-Host ""
+            Write-ColorOutput "Claude AI analysis completed for all $($AllTickets.Count) tickets!" "Success"
         }
         
         # Save debug file
@@ -2068,7 +2071,7 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
                 Write-Host ""
                 Write-ColorOutput "Claude Analysis Failure Reasons:" "Warning"
                 $claudeErrors | ForEach-Object {
-                    Write-Host "  • $_" -ForegroundColor Yellow
+                    Write-Host "  - $_" -ForegroundColor Yellow
                 }
             }
         }
@@ -2105,16 +2108,16 @@ function Show-Help {
     Write-Host "  .\tfs-analyzer.ps1 7 -NoAI -Details          - Traditional analysis with detailed output"
     Write-Host ""
     Write-Host "AUTHENTICATION METHODS:" -ForegroundColor Yellow
-    Write-Host "  Azure CLI (Recommended) - Uses current Azure login (az login)"
+    Write-Host "  Azure CLI (Recommended) - Uses current Azure login (az login --allow-no-subscriptions)"
     Write-Host "  Personal Access Token   - Uses stored PAT for authentication"
     Write-Host "  Windows Authentication  - Uses current Windows credentials (on-premise only)"
     Write-Host ""
     Write-Host "AI ENHANCEMENT:" -ForegroundColor Yellow
     Write-Host "  Claude AI provides enhanced analysis including:"
-    Write-Host "  • Intelligent priority assessment with detailed reasoning"
-    Write-Host "  • Smart content summarization and key point extraction"
-    Write-Host "  • Action recommendations and impact analysis"
-    Write-Host "  • Decision tracking from comments and history"
+    Write-Host "  - Intelligent priority assessment with detailed reasoning"
+    Write-Host "  - Smart content summarization and key point extraction"
+    Write-Host "  - Action recommendations and impact analysis"
+    Write-Host "  - Decision tracking from comments and history"
     Write-Host ""
     Write-Host "OUTPUT OPTIONS:" -ForegroundColor Yellow
     Write-Host "  HTML File - Professional web page with AI insights"
@@ -2122,6 +2125,178 @@ function Show-Help {
     Write-Host "  Text File - Structured text format with AI summaries"
     Write-Host "  Browser - Automatically opens HTML with full analysis"
     Write-Host "  Console - Always shows summary in terminal"
+}
+
+function Test-ClaudeConfiguration {
+    Write-ColorOutput "Testing Claude AI Configuration..." "Info"
+    Write-Host ""
+    
+    # Step 1: Check if basic configuration exists
+    if (-not (Test-Path $ConfigFile)) {
+        Write-ColorOutput "[WARNING] No basic configuration found." "Warning"
+        Write-Host "You need to run the initial setup first."
+        Write-Host ""
+        $setupBasic = Read-Host "Would you like to run the basic setup now? (y/n)"
+        if ($setupBasic -eq 'y' -or $setupBasic -eq 'Y') {
+            Setup-Configuration
+            return
+        } else {
+            Write-ColorOutput "[ERROR] Cannot test Claude without basic configuration." "Error"
+            return
+        }
+    }
+    
+    $Config = Load-Configuration
+    Write-ColorOutput "[OK] Basic configuration found" "Success"
+    
+    # Step 2: Test authentication availability
+    Write-Host ""
+    Write-ColorOutput "Checking Authentication..." "Info"
+    
+    $azAuthWorking = $false
+    $patAvailable = $false
+    
+    # Test Azure CLI authentication status
+    try {
+        $accountInfo = az account show 2>$null | ConvertFrom-Json
+        if ($accountInfo -and $accountInfo.user -and $accountInfo.user.name) {
+            Write-ColorOutput "[OK] Azure CLI is authenticated as $($accountInfo.user.name)" "Success"
+            $azAuthWorking = $true
+        }
+    } catch {
+        Write-DebugOutput "Azure CLI test failed: $($_.Exception.Message)"
+    }
+    
+    # Test Windows Authentication
+    $windowsAuthAvailable = $false
+    if ($Config.USE_WINDOWS_AUTH -eq 'True') {
+        Write-ColorOutput "[OK] Windows Authentication is enabled" "Success"
+        $windowsAuthAvailable = $true
+    }
+    
+    # Test PAT availability
+    if ($Config.PAT -and $Config.PAT.Trim() -ne "") {
+        Write-ColorOutput "[OK] Personal Access Token is configured" "Success"
+        $patAvailable = $true
+    }
+    
+    # If no authentication method is available, guide user to set it up
+    if (-not $azAuthWorking -and -not $patAvailable -and -not $windowsAuthAvailable) {
+        Write-ColorOutput "[WARNING] No authentication method is available!" "Warning"
+        Write-Host ""
+        Write-Host "AUTHENTICATION SETUP REQUIRED:"
+        Write-Host "You need at least one authentication method to use Claude AI."
+        Write-Host ""
+        
+        if ($isAzureDevOps) {
+            Write-Host "OPTION 1 (RECOMMENDED): Azure CLI"
+            Write-Host "  1. Run: az login --allow-no-subscriptions"
+            Write-Host "  2. Follow the browser authentication prompts"
+            Write-Host "  3. Come back and run: .\tfs-analyzer.ps1 test-claude"
+            Write-Host ""
+            Write-Host "OPTION 2: Personal Access Token (PAT)"
+            Write-Host "  1. Run: .\tfs-analyzer.ps1 setup"
+            Write-Host "  2. Choose to configure PAT when prompted"
+            Write-Host "  3. Come back and run: .\tfs-analyzer.ps1 test-claude"
+            Write-Host ""
+            
+            $authChoice = Read-Host "Would you like to set up Azure CLI authentication now? (y/n)"
+            if ($authChoice -eq 'y' -or $authChoice -eq 'Y') {
+                Write-Host ""
+                Write-ColorOutput "Starting Azure CLI authentication..." "Info"
+                Write-Host "This will open your browser for authentication..."
+                
+                try {
+                    $azResult = Start-Process "az" -ArgumentList "login", "--allow-no-subscriptions" -NoNewWindow -Wait -PassThru
+                    if ($azResult.ExitCode -eq 0) {
+                        Write-ColorOutput "[OK] Azure CLI authentication completed!" "Success"
+                        Write-Host "Run 'test-claude' again to verify the setup."
+                    } else {
+                        Write-ColorOutput "[ERROR] Azure CLI authentication failed." "Error"
+                        Write-Host "You can try the PAT setup instead: .\tfs-analyzer.ps1 setup"
+                    }
+                } catch {
+                    Write-ColorOutput "[ERROR] Could not start Azure CLI authentication: $($_.Exception.Message)" "Error"
+                    Write-Host "Please install Azure CLI or run: .\tfs-analyzer.ps1 setup"
+                }
+            }
+        } else {
+            Write-Host "FOR ON-PREMISES TFS:"
+            Write-Host "Personal Access Token (PAT) is required for on-premises TFS."
+            Write-Host ""
+            Write-Host "OPTION 1: Personal Access Token (PAT)"
+            Write-Host "  1. Run: .\tfs-analyzer.ps1 setup"
+            Write-Host "  2. Choose to configure PAT when prompted"
+            Write-Host "  3. Come back and run: .\tfs-analyzer.ps1 test-claude"
+            Write-Host ""
+            Write-Host "OPTION 2: Windows Authentication"
+            Write-Host "  1. Run: .\tfs-analyzer.ps1 setup"
+            Write-Host "  2. Choose to enable Windows Authentication when prompted"
+            Write-Host "  3. Come back and run: .\tfs-analyzer.ps1 test-claude"
+            Write-Host ""
+            
+            $authChoice = Read-Host "Would you like to run the setup now? (y/n)"
+            if ($authChoice -eq 'y' -or $authChoice -eq 'Y') {
+                Setup-Configuration
+                return
+            }
+        }
+        return
+    }
+    
+    # Step 3: Test Claude Code CLI
+    Write-Host ""
+    Write-ColorOutput "Testing Claude Code CLI..." "Info"
+    
+    $claudeAvailable = Test-ClaudeCodeAvailability
+    if (-not $claudeAvailable) {
+        Write-ColorOutput "[ERROR] Claude Code CLI not found" "Error"
+        Write-Host ""
+        Write-Host "CLAUDE CODE INSTALLATION REQUIRED:"
+        Write-Host "1. Visit: https://claude.ai/code"
+        Write-Host "2. Download and install Claude Code"
+        Write-Host "3. Restart your terminal"
+        Write-Host "4. Run: .\tfs-analyzer.ps1 test-claude"
+        return
+    }
+    
+    Write-ColorOutput "[OK] Claude Code CLI is available" "Success"
+    
+    # Step 4: Test full Claude integration
+    Write-Host ""
+    Write-ColorOutput "Testing Claude AI Integration..." "Info"
+    
+    # Test if all components are working together
+    $fullTest = $true
+    try {
+        # Quick test of basic functionality  
+        $headers = Get-Headers -Config $Config
+        if (-not $headers) {
+            $fullTest = $false
+        }
+    } catch {
+        $fullTest = $false
+        Write-DebugOutput "Full configuration test failed: $($_.Exception.Message)"
+    }
+    if ($fullTest) {
+        Write-Host ""
+        Write-ColorOutput "[SUCCESS] Claude AI is fully configured and ready!" "Success"
+        Write-Host ""
+        Write-Host "Next Steps:"
+        Write-Host "- Test with: .\tfs-analyzer.ps1 1 -Claude -Browser"
+        Write-Host "- Use -Details for troubleshooting if needed"
+        Write-Host ""
+        Write-Host "Ready! Claude AI will enhance your ticket analysis!"
+    } else {
+        Write-Host ""
+        Write-ColorOutput "[WARNING] Claude AI configuration has issues" "Warning"
+        Write-Host ""
+        Write-Host "Try these troubleshooting steps:"
+        Write-Host "1. Run: .\tfs-analyzer.ps1 setup-claude"
+        Write-Host "2. Verify Azure DevOps connectivity"
+        Write-Host "3. Check Claude Code installation"
+        Write-Host "4. Use -Details flag for debug information"
+    }
 }
 
 # Main logic

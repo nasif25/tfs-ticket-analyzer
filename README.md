@@ -79,7 +79,7 @@ python tfs-analyzer.py 1 --no-ai -d  # Traditional analysis with debug
 **For AI-Enhanced Analysis (Optional but Recommended):**
 1. **Install Claude Code**: Download from [claude.ai/code](https://claude.ai/code)
 2. **Azure CLI** (recommended): Install from [docs.microsoft.com/en-us/cli/azure/install-azure-cli](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
-3. **Authenticate with Azure CLI**: Run `az login`
+3. **Authenticate with Azure CLI**: Run `az login --allow-no-subscriptions`
 
 ### 2. First-time Setup
 
@@ -230,7 +230,7 @@ python tfs-analyzer.py 7 --output text
 - 🚨 **Detailed Error Messages** - Specific error reasons displayed in all output formats (console, HTML, text, email)
 
 ### 🔐 **Enhanced Authentication**
-- ☁️ **Azure CLI Authentication** - Seamless integration with `az login` (recommended)
+- ☁️ **Azure CLI Authentication** - Seamless integration with `az login --allow-no-subscriptions` (recommended)
 - 🔑 **Personal Access Token** - Secure PAT-based authentication with fallback support
 - 🪟 **Windows Authentication** - Native Windows/Kerberos authentication for on-premise TFS
 - 🔄 **Automatic Fallback** - Smart authentication fallback chain for reliability
@@ -274,11 +274,14 @@ python tfs-analyzer.py 7 --output text
 
 ## 🔧 Configuration
 
-Configuration is stored in platform-appropriate locations:
+Configuration is stored locally within the project directory for better security and portability:
 
 ### **File Locations**
-- **Windows**: `%USERPROFILE%\.tfs-analyzer-config`
-- **Linux/Mac**: `~/.config/.tfs-analyzer-config`
+- **All Platforms**: `PROJECT_ROOT/.config/.tfs-analyzer-config`
+- **Claude Configuration**: `PROJECT_ROOT/.config/.tfs-analyzer-claude-config`
+- **Claude Code MCP**: `PROJECT_ROOT/.config/claude-code-config.json`
+
+> **📁 Note**: Configuration files are stored in the project's `.config` directory and are automatically excluded from version control via `.gitignore` for security.
 
 ### **Configuration Format**
 
@@ -507,9 +510,9 @@ python tfs-analyzer.py --setup     # Python
 - **Decision Tracking**: Identifies important decisions from comments and history
 
 ### **Configuration Files**
-- **Main Config**: `%USERPROFILE%\.tfs-analyzer-config`
-- **Claude Config**: `%USERPROFILE%\.tfs-analyzer-claude-config`  
-- **Claude Code MCP**: `%USERPROFILE%\claude-code-config.json`
+- **Main Config**: `PROJECT_ROOT/.config/.tfs-analyzer-config`
+- **Claude Config**: `PROJECT_ROOT/.config/.tfs-analyzer-claude-config`  
+- **Claude Code MCP**: `PROJECT_ROOT/.config/claude-code-config.json`
 
 ### **Enhanced Error Reporting**
 When Claude AI analysis fails, all three platforms now provide **detailed error reporting**:
@@ -538,8 +541,8 @@ If Claude AI analysis fails:
 
 **Azure CLI (Recommended)**
 ```powershell
-# Login to Azure CLI
-az login
+# Login to Azure CLI (tenant-level access for Azure DevOps)
+az login --allow-no-subscriptions
 
 # Configure for specific organization
 az devops configure --defaults organization=https://tfs.deltek.com/tfs/Deltek project=TIP
@@ -589,7 +592,9 @@ crontab -e
 
 ## 🆕 Latest Updates
 
-### **Version 2.2.0 - Enhanced Error Reporting**
+### **Version 2.3.0 - Local Configuration & Enhanced Error Reporting**
+- ✅ **Local Configuration Storage**: All configuration files now stored in project's `.config` directory for better security and portability
+- ✅ **Enhanced Security**: Configuration files automatically excluded from version control
 - ✅ **Detailed Claude Error Messages**: All platforms now show specific reasons when Claude AI analysis fails
 - ✅ **Cross-Platform Error Consistency**: Same error messages across PowerShell, Bash, and Python versions
 - ✅ **Error Display in All Formats**: Error reasons shown in console, HTML, text, and email outputs
@@ -608,6 +613,30 @@ crontab -e
 This enhanced TFS/Azure DevOps ticket analyzer provides AI-powered analysis with comprehensive fallback options, multiple authentication methods, and flexible automation for any development team using Team Foundation Server or Azure DevOps.
 
 ## 🔧 Troubleshooting
+
+### **Configuration Migration (v2.3.0+)**
+
+**🆕 Local Configuration Storage**
+Starting with v2.3.0, all configuration files are stored locally in the project's `.config` directory instead of user directories for better security and portability.
+
+**❓ "No configuration found" after update**
+If you had previous configurations, you'll need to run setup again:
+```powershell
+# Windows
+.\tfs-analyzer.ps1 setup
+
+# Linux/Mac
+./tfs-analyzer.sh setup
+
+# Python
+python tfs-analyzer.py --setup
+```
+
+**📁 Configuration File Locations (New)**
+- **All Configurations**: `PROJECT_ROOT/.config/`
+- **Automatically excluded** from version control via `.gitignore`
+- **More secure**: No sensitive data in user directories
+- **Portable**: Configuration travels with the project
 
 ### **Claude AI Issues**
 
@@ -657,8 +686,8 @@ python tfs-analyzer.py --setup           # Python
 
 **❌ "Azure CLI authentication failed"**
 ```powershell
-# Re-login to Azure CLI
-az login
+# Re-login to Azure CLI (tenant-level access)
+az login --allow-no-subscriptions
 
 # Verify account
 az account show
@@ -753,3 +782,92 @@ python tfs-analyzer.py 1 -b -d      # Browser + debug info
 python tfs-analyzer.py 7 --no-ai -t # Traditional + text output
 python tfs-analyzer.py 2 -c -b -d   # AI + browser + debug
 ```
+
+---
+
+## 📋 **Version History & Changelog**
+
+### **Version 2.3.1** (Latest - August 2025)
+
+#### **🔧 Bug Fixes**
+- **FIXED: Authentication Issues for On-premises TFS**
+  - Resolved authentication inconsistency between `test-claude` and main script execution
+  - Fixed Azure CLI authentication for Azure AD-integrated on-premises TFS servers
+  - Improved authentication detection logic to properly handle tenant-level Azure CLI authentication
+  - Updated PowerShell requests to use `-UseDefaultCredentials` when appropriate
+
+#### **✨ Improvements** 
+- **Enhanced Debug Output Control**
+  - Debug messages now only appear when using `-Details` flag (PowerShell), `-d` flag (Bash/Python)
+  - Cleaner console output for regular usage
+  - Improved troubleshooting with comprehensive debug information when requested
+
+#### **🛠️ Technical Changes**
+- Added `Invoke-TfsRestMethod` helper function for consistent authentication handling
+- Implemented script-level variable scoping for debug output control
+- Enhanced `Write-DebugOutput` function with proper parameter handling
+- Updated all REST API calls to use unified authentication approach
+
+### **Version 2.3.0** (August 2025)
+
+#### **🔒 Security & Configuration**
+- **Moved all configuration to local project directory** (`.config/` folder)
+- Enhanced `.gitignore` with comprehensive security exclusions  
+- Updated all scripts to use local configuration storage
+- Improved configuration portability and security
+
+#### **🚀 New Features**
+- **Cross-platform Claude AI integration** with MCP server support
+- **Interactive authentication setup** with guided prompts
+- **Enhanced error handling** and user-friendly error messages
+- **Simplified parameter names** for easier daily usage
+
+#### **🔧 Fixes**
+- Fixed Unicode character display issues across all platforms
+- Removed duplicate words from Unicode character replacements
+- Enhanced Azure CLI integration with `--allow-no-subscriptions` support
+- Improved cross-platform compatibility
+
+---
+
+## 🔐 **Authentication Troubleshooting**
+
+### **For On-premises TFS with Azure AD Integration**
+
+If you're using on-premises TFS that's integrated with Azure AD (like `https://tfs.yourcompany.com`):
+
+1. **Run Azure CLI authentication** (recommended):
+   ```bash
+   az login --allow-no-subscriptions
+   ```
+
+2. **Test the authentication**:
+   ```powershell
+   # PowerShell
+   .\tfs-analyzer.ps1 test-claude
+   
+   # Bash/Linux/Mac  
+   ./tfs-analyzer.sh test-claude
+   
+   # Python
+   python tfs-analyzer.py --test-claude
+   ```
+
+3. **If you get authentication errors**:
+   - Verify you can access your TFS server in a browser
+   - Ensure you're logged in with the correct Azure AD account
+   - Try running setup again: `.\tfs-analyzer.ps1 setup`
+
+### **Authentication Methods by Environment**
+
+| Environment | Recommended Method | Alternative |
+|-------------|-------------------|-------------|
+| **Azure DevOps Cloud** | Azure CLI (`az login`) | Personal Access Token |
+| **On-premises TFS + Azure AD** | Azure CLI (`az login --allow-no-subscriptions`) | Personal Access Token |  
+| **Traditional On-premises TFS** | Personal Access Token | Windows Authentication |
+
+### **Getting More Help**
+
+- Use `-Details` (PowerShell) or `-d` (Bash/Python) for debug information
+- Check the generated debug file: `TFS-Debug-Data.txt`  
+- Verify your TFS URL format and project name in the configuration
