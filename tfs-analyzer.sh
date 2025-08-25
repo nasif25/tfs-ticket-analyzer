@@ -8,6 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.config"
 CONFIG_FILE="$CONFIG_DIR/.tfs-analyzer-config"
+CLAUDE_CONFIG_FILE="$HOME/.config/claude-code/config.json"
 
 # Colors for output
 RED='\033[0;31m'
@@ -24,27 +25,41 @@ mkdir -p "$CONFIG_DIR"
 
 print_usage() {
     cat << EOF
-TFS Ticket Analyzer - Cross-platform bash version
+TFS Ticket Analyzer - Cross-platform bash version with Claude AI support
 
 Usage: $0 [DAYS] [OPTIONS]
 
 Arguments:
     DAYS                Number of days to analyze (default: 1)
 
-Options:
+Setup Commands:
     setup               Run initial configuration
+    setup-claude        Setup Claude AI integration
     setup-output        Configure default output method  
     test-auth           Test TFS authentication
     setup-cron [TIME]   Setup daily cron job (default time: 08:00)
+
+Simplified Options:
+    -b, --browser       Open results in browser (same as --output browser)
+    -h, --html          Save as HTML file (same as --output html)
+    -t, --text          Save as text file (same as --output text)
+    -e, --email         Send via email (same as --output email)
+    -c, --claude        Use Claude AI for enhanced analysis
+    --no-ai             Disable Claude AI (traditional analysis only)
+    -d, --details       Show detailed processing information
+    --help              Show this help message
+
+Traditional Options:
     --output METHOD     Output method: browser|html|text|console|email
     --windows-auth      Use Windows/Kerberos authentication
-    --verbose           Show detailed processing information
-    --help              Show this help message
+    --verbose           Show detailed processing information (same as --details)
 
 Examples:
     $0 setup                           # Initial setup
-    $0 1 --output browser             # Analyze 1 day, show in browser
-    $0 7 --output html                # Analyze 1 week, save HTML
+    $0 setup-claude                    # Setup Claude AI integration
+    $0 1 -b                           # Analyze 1 day, show in browser
+    $0 7 -h                           # Analyze 1 week, save HTML
+    $0 1 -c -b                        # Analyze with Claude AI, show in browser
     $0 setup-cron 09:00               # Setup daily cron at 9 AM
     $0 test-auth                      # Test connection
 
@@ -177,6 +192,218 @@ setup_email_config() {
             read -p "SMTP Port (587/465): " SMTP_PORT
             ;;
     esac
+}
+
+test_claude_configuration() {
+    log_message "INFO" "Testing Claude AI configuration..."
+    
+    # Step 1: Test Claude Code CLI availability
+    echo "Step 1: Testing Claude Code CLI availability"
+    if command -v claude-code > /dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Claude Code CLI found"
+    else
+        log_message "ERROR" "❌ Claude Code CLI not found"
+        echo "Solution: Install Claude Code from https://claude.ai/code"
+        return 1
+    fi
+    
+    # Step 2: Test authentication methods
+    echo "Step 2: Testing authentication methods"
+    local auth_available="false"
+    
+    if command -v az > /dev/null 2>&1 && az account show > /dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Azure CLI authentication verified"
+        auth_available="true"
+    elif [[ -n "$PAT" ]]; then
+        log_message "SUCCESS" "✅ PAT authentication available"  
+        auth_available="true"
+    else
+        log_message "ERROR" "❌ No valid authentication method found"
+        echo "Solution: Run 'az login' or ensure PAT is configured"
+        return 1
+    fi
+    
+    # Step 3: Test Claude Code MCP configuration
+    echo "Step 3: Testing Claude Code MCP configuration"
+    if [[ -f "$CLAUDE_CONFIG_FILE" ]]; then
+        log_message "SUCCESS" "✅ Claude Code MCP configuration found"
+    else
+        log_message "WARN" "⚠️  Claude Code MCP configuration not found"
+        echo "Will create during setup"
+    fi
+    
+    # Step 4: Test Claude Code basic functionality
+    echo "Step 4: Testing Claude Code basic functionality"
+    if claude-code --help > /dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Claude Code basic functionality verified"
+    else
+        log_message "WARN" "⚠️  Claude Code basic test failed"
+    fi
+    
+    echo
+    log_message "SUCCESS" "Claude AI configuration test completed!"
+    return 0
+}
+
+setup_claude_config() {
+    log_message "INFO" "Setting up Claude AI integration..."
+    echo "This will configure AI-powered ticket analysis with enhanced insights."
+    echo
+    
+    # Step 1: Test Claude Code availability
+    if ! command -v claude-code > /dev/null 2>&1; then
+        log_message "ERROR" "❌ Claude Code CLI not found. Please install Claude Code first:"
+        echo
+        echo "📥 Installation Steps:"
+        echo "1. Visit: https://claude.ai/code"
+        echo "2. Download and install Claude Code"
+        echo "3. Follow the setup instructions" 
+        echo "4. Restart your terminal"
+        echo "5. Run this setup again: $0 setup-claude"
+        echo
+        return 1
+    fi
+    log_message "SUCCESS" "✅ Claude Code CLI found"
+    
+    # Step 2: Load existing configuration
+    if ! load_config; then
+        log_message "ERROR" "❌ Main configuration not found. Please run: $0 setup"
+        return 1
+    fi
+    
+    echo
+    log_message "INFO" "📋 Claude AI Features:"
+    echo "• Intelligent priority assessment with AI reasoning"
+    echo "• Smart content summarization and key point extraction"
+    echo "• Actionable recommendations for next steps"
+    echo "• Impact analysis and risk assessment"
+    echo "• Enhanced decision tracking from ticket history"
+    echo
+    
+    read -p "Enable Claude AI analysis by default? (y/n): " enable_claude
+    local use_claude_by_default="false"
+    if [[ "$enable_claude" == "y" || "$enable_claude" == "Y" ]]; then
+        use_claude_by_default="true"
+    fi
+    
+    # Step 3: Configure authentication
+    echo
+    log_message "INFO" "🔐 Authentication Configuration:"
+    echo "Claude Code supports multiple authentication methods:"
+    echo "1. Azure CLI (Recommended) - Uses your current Azure login"
+    echo "2. Personal Access Token - Uses stored PAT from main config"
+    echo
+    
+    # Test available authentication methods
+    local azure_cli_auth="false"
+    local pat_available="false"
+    
+    if command -v az > /dev/null 2>&1 && az account show > /dev/null 2>&1; then
+        azure_cli_auth="true"
+    fi
+    
+    if [[ -n "$PAT" ]]; then
+        pat_available="true"
+    fi
+    
+    echo "📊 Authentication Status:"
+    if [[ "$azure_cli_auth" == "true" ]]; then
+        log_message "SUCCESS" "✅ Azure CLI: Authenticated and ready"
+    else
+        log_message "WARN" "❌ Azure CLI: Not authenticated (run 'az login')"
+    fi
+    
+    if [[ "$pat_available" == "true" ]]; then
+        log_message "SUCCESS" "✅ PAT: Available from main configuration"
+    else
+        log_message "WARN" "❌ PAT: Not configured"
+    fi
+    
+    echo
+    read -p "Choose primary authentication method (1 for Azure CLI, 2 for PAT): " auth_choice
+    local use_azure_cli="false"
+    
+    if [[ "$auth_choice" == "1" ]]; then
+        if [[ "$azure_cli_auth" == "true" ]]; then
+            use_azure_cli="true"
+        else
+            log_message "WARN" "⚠️  Azure CLI selected but not authenticated."
+            echo "Please run: az login"
+            echo
+            read -p "Continue with PAT as fallback? (y/n): " continue_with_pat
+            if [[ "$continue_with_pat" != "y" && "$continue_with_pat" != "Y" ]]; then
+                log_message "WARN" "Setup cancelled. Please run 'az login' and try again."
+                return 1
+            fi
+        fi
+    fi
+    
+    if [[ "$use_azure_cli" == "false" && "$pat_available" == "false" ]]; then
+        log_message "ERROR" "❌ No valid authentication method available."
+        echo "Please either:"
+        echo "1. Run 'az login' to authenticate Azure CLI, or"
+        echo "2. Run '$0 setup' to configure PAT"
+        return 1
+    fi
+    
+    # Step 4: Configure Azure DevOps Organization URL
+    echo
+    log_message "INFO" "🔗 Azure DevOps Configuration:"
+    read -p "Enter your Azure DevOps Organization URL (e.g., https://dev.azure.com/yourorg): " AZURE_DEVOPS_ORG_URL
+    
+    if [[ -z "$AZURE_DEVOPS_ORG_URL" ]]; then
+        log_message "ERROR" "❌ Azure DevOps Organization URL is required for Claude AI integration."
+        return 1
+    fi
+    
+    # Step 5: Create Claude Code MCP server configuration
+    log_message "INFO" "Setting up Claude Code MCP server configuration..."
+    
+    # Create Claude Code config file
+    cat > "$CLAUDE_CONFIG_FILE" << EOF
+{
+    "mcpServers": {
+        "azure-devops": {
+            "command": "npx",
+            "args": ["@anthropic/mcp-server-azure-devops"],
+            "env": {
+                "AZURE_DEVOPS_ORG_URL": "$AZURE_DEVOPS_ORG_URL"
+            }
+        }
+    }
+}
+EOF
+    
+    log_message "SUCCESS" "✅ Claude Code MCP configuration created"
+    
+    # Step 6: Update main configuration  
+    USE_CLAUDE_AI="$use_claude_by_default"
+    AZURE_DEVOPS_ORG_URL="$AZURE_DEVOPS_ORG_URL"
+    
+    # Step 7: Run comprehensive verification
+    echo
+    log_message "INFO" "🧪 Running Configuration Verification..."
+    if test_claude_configuration; then
+        echo
+        log_message "SUCCESS" "🎉 Claude AI integration setup completed successfully!"
+        echo
+        echo "📝 Next Steps:"
+        echo "• Test with: $0 1 -c -b"
+        echo "• Use -d flag for troubleshooting if needed"
+        echo "• Run 'test-auth' to verify authentication setup"
+        echo
+        echo "🚀 Claude AI is now ready to enhance your ticket analysis!"
+    else
+        log_message "WARN" "⚠️  Setup completed with warnings. Some features may not work properly."
+        echo
+        echo "🛠️  Troubleshooting Tips:"
+        echo "• Run: $0 test-claude"
+        echo "• Check authentication with: az login"
+        echo "• Verify Claude Code installation"
+        echo "• Use -d flag for debug information"
+    fi
+    
+    return 0
 }
 
 test_auth() {
@@ -380,6 +607,14 @@ generate_console_output() {
         fi
     done < <(grep -A 50 '"fields":' "$work_items_file")
     
+    # Display Claude failure reason if present
+    if [[ -n "$CLAUDE_FAILURE_REASON" ]]; then
+        echo
+        echo -e "${YELLOW}Claude Analysis Failure Reason:${NC}"
+        echo -e "  • $CLAUDE_FAILURE_REASON"
+        echo
+    fi
+    
     # Cleanup temp file
     rm -f "$work_items_file"
 }
@@ -437,6 +672,14 @@ EOF
     local total_count
     total_count=$(grep -c '"id":' "$work_items_file" || echo "0")
     echo "        <p><strong>Total Items:</strong> $total_count</p>" >> "$output_file"
+    
+    # Add Claude failure reason if present
+    if [[ -n "$CLAUDE_FAILURE_REASON" ]]; then
+        echo "        <div style='background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 10px; margin: 10px 0;'>" >> "$output_file"
+        echo "            <strong>⚠️ Claude Analysis Failure:</strong> $CLAUDE_FAILURE_REASON" >> "$output_file"
+        echo "        </div>" >> "$output_file"
+    fi
+    
     echo "    </div>" >> "$output_file"
     
     # Process work items for HTML
@@ -487,6 +730,160 @@ EOF
     rm -f "$work_items_file"
 }
 
+invoke_claude_analysis() {
+    local work_items_file="$1"
+    local days="$2"
+    local output_method="$3"
+    
+    if [[ ! -f "$work_items_file" ]]; then
+        echo "ERROR: Work items file not found for Claude analysis"
+        return 1
+    fi
+    
+    log_message "INFO" "🤖 Starting Claude AI enhanced analysis..."
+    
+    # Step 1: Verify Claude Code is available
+    if ! command -v claude-code > /dev/null 2>&1; then
+        echo "ERROR: Claude Code CLI not found. Run setup-claude first."
+        return 1
+    fi
+    
+    # Step 2: Verify authentication
+    local auth_available="false"
+    if command -v az > /dev/null 2>&1 && az account show > /dev/null 2>&1; then
+        auth_available="true" 
+        log_message "INFO" "✅ Using Azure CLI authentication for Claude analysis"
+    elif [[ -n "$PAT" ]]; then
+        log_message "INFO" "✅ Using Personal Access Token for Claude analysis"
+        # Set PAT for Azure DevOps MCP server
+        export AZURE_DEVOPS_PAT="$PAT"
+        auth_available="true"
+    else
+        echo "ERROR: No valid authentication method available. Configure Azure CLI or PAT."
+        return 1
+    fi
+    
+    if [[ "$auth_available" == "false" ]]; then
+        echo "ERROR: Authentication verification failed."
+        return 1
+    fi
+    
+    # Step 3: Verify Claude Code MCP configuration
+    if [[ ! -f "$CLAUDE_CONFIG_FILE" ]]; then
+        log_message "WARN" "⚠️  Claude Code MCP configuration not found. This may cause issues."
+        echo "Consider running: $0 setup-claude"
+    fi
+    
+    # Create a temporary analysis request file
+    local temp_request="/tmp/claude_analysis_request_$$.txt"
+    cat > "$temp_request" << EOF
+Please analyze the following TFS work items from the last $days days and provide:
+
+1. Enhanced Priority Analysis - Review each work item and provide intelligent priority rankings
+2. Action Recommendations - Suggest specific next steps for each item
+3. Risk Assessment - Identify potential risks or blockers
+4. Summary Insights - Overall patterns and key focus areas
+
+Work Items Data:
+\$(cat "$work_items_file")
+
+Please format the response as structured analysis with clear sections for each work item, including priority level (HIGH/MEDIUM/LOW), recommended actions, and risk factors.
+EOF
+    
+    # Invoke Claude Code with the analysis request using stdin
+    local claude_response="/tmp/claude_response_$$.txt"
+    local claude_error="/tmp/claude_error_$$.txt"
+    
+    # Use timeout and proper error capture
+    if timeout 120 bash -c "cat '$temp_request' | claude-code --print --output-format json" > "$claude_response" 2> "$claude_error"; then
+        if [[ -s "$claude_response" ]]; then
+            log_message "SUCCESS" "Claude AI analysis completed"
+            
+            # Process Claude's response and integrate with traditional analysis
+            generate_enhanced_analysis "$work_items_file" "$claude_response" "$days" "$output_method"
+            
+            # Cleanup
+            rm -f "$temp_request" "$claude_response" "$claude_error"
+            return 0
+        else
+            local error_msg="Claude returned empty response"
+            if [[ -s "$claude_error" ]]; then
+                local error_content=$(head -n 3 "$claude_error" | tr '\n' ' ')
+                error_msg="$error_msg: $error_content"
+            fi
+            echo "ERROR: $error_msg"
+            rm -f "$temp_request" "$claude_response" "$claude_error"
+            return 1
+        fi
+    else
+        local exit_code=$?
+        local error_msg=""
+        
+        if [[ $exit_code -eq 124 ]]; then
+            error_msg="Command timed out after 120 seconds"
+        elif [[ -s "$claude_error" ]]; then
+            error_msg=$(head -n 3 "$claude_error" | tr '\n' ' ')
+        else
+            error_msg="Claude Code execution failed (exit code: $exit_code)"
+        fi
+        
+        echo "ERROR: $error_msg"
+        rm -f "$temp_request" "$claude_response" "$claude_error"
+        return 1
+    fi
+}
+
+generate_enhanced_analysis() {
+    local work_items_file="$1"
+    local claude_response="$2"
+    local days="$3"
+    local output_method="$4"
+    
+    log_message "INFO" "Generating enhanced analysis with Claude AI insights"
+    
+    case "$output_method" in
+        "browser"|"html")
+            generate_enhanced_html_output "$work_items_file" "$claude_response" "$days" "$([[ \"$output_method\" == \"browser\" ]] && echo \"true\" || echo \"false\")"
+            ;;
+        "console")
+            generate_enhanced_console_output "$work_items_file" "$claude_response" "$days"
+            ;;
+        "text")
+            generate_enhanced_text_output "$work_items_file" "$claude_response" "$days"
+            ;;
+        *)
+            generate_enhanced_console_output "$work_items_file" "$claude_response" "$days"
+            ;;
+    esac
+}
+
+generate_enhanced_console_output() {
+    local work_items_file="$1"
+    local claude_response="$2"
+    local days="$3"
+    
+    echo
+    echo -e "${CYAN}🤖 TFS Ticket Analysis with Claude AI - Last $days days${NC}"
+    echo "========================================================"
+    echo -e "${WHITE}📅 Generated: $(date)${NC}"
+    
+    # Count total items
+    local total_count
+    total_count=$(grep -c '"id":' "$work_items_file" || echo "0")
+    echo -e "${WHITE}📊 Total items: $total_count${NC}"
+    echo -e "${WHITE}🧠 Enhanced with Claude AI analysis${NC}"
+    echo
+    
+    # Display Claude's insights first
+    echo -e "${PURPLE}📋 Claude AI Insights:${NC}"
+    echo "------------------------"
+    head -20 "$claude_response" 2>/dev/null || echo "Claude analysis available in detailed view"
+    echo
+    
+    # Then display traditional analysis enhanced with any specific recommendations
+    generate_console_output "$work_items_file" "$days"
+}
+
 setup_cron_job() {
     local cron_time="${1:-08:00}"
     local output_method="${2:-console}"
@@ -523,12 +920,22 @@ main() {
     local output_method=""
     local use_windows_auth="false"
     local verbose="false"
+    local use_claude_ai="false"
+    local disable_ai="false"
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             setup)
                 setup_config "$use_windows_auth"
+                exit 0
+                ;;
+            setup-claude)
+                setup_claude_config
+                exit 0
+                ;;
+            test-claude)
+                test_claude_configuration
                 exit 0
                 ;;
             setup-output)
@@ -544,6 +951,29 @@ main() {
                 setup_cron_job "$cron_time" "${output_method:-console}"
                 exit 0
                 ;;
+            # Simplified parameters
+            -b|--browser)
+                output_method="browser"
+                ;;
+            -h|--html)
+                output_method="html"
+                ;;
+            -t|--text)
+                output_method="text"
+                ;;
+            -e|--email)
+                output_method="email"
+                ;;
+            -c|--claude)
+                use_claude_ai="true"
+                ;;
+            --no-ai)
+                disable_ai="true"
+                ;;
+            -d|--details)
+                verbose="true"
+                ;;
+            # Traditional parameters for backward compatibility
             --output)
                 output_method="$2"
                 shift
@@ -554,7 +984,7 @@ main() {
             --verbose)
                 verbose="true"
                 ;;
-            --help|-h)
+            --help)
                 print_usage
                 exit 0
                 ;;
@@ -580,9 +1010,44 @@ main() {
         output_method="${DEFAULT_OUTPUT:-console}"
     fi
     
+    # Determine if Claude AI should be used
+    if [[ "$disable_ai" == "true" ]]; then
+        use_claude_ai="false"
+    elif [[ "$use_claude_ai" == "true" ]]; then
+        # Verify Claude setup when explicitly requested
+        log_message "INFO" "🔍 Verifying Claude AI configuration..."
+        if test_claude_configuration > /dev/null 2>&1; then
+            log_message "SUCCESS" "✅ Claude AI verification passed - using AI analysis"
+        else
+            use_claude_ai="false"
+            log_message "WARN" "❌ Claude AI verification failed - falling back to traditional analysis"
+            echo
+            echo "🛠️  Quick Fixes:"
+            echo "• Run: $0 setup-claude"
+            echo "• Check: az login"  
+            echo "• Verify: Claude Code installation"
+            echo
+        fi
+    elif [[ "$use_claude_ai" == "false" ]]; then
+        # Check if Claude AI is configured by default
+        local default_claude="${USE_CLAUDE_AI:-false}"
+        if [[ "$default_claude" == "true" ]]; then
+            # Quick verification for default usage (less verbose)
+            if command -v claude-code > /dev/null 2>&1 && ( (command -v az > /dev/null 2>&1 && az account show > /dev/null 2>&1) || [[ -n "$PAT" ]] ); then
+                use_claude_ai="true"
+            else
+                use_claude_ai="false"
+                log_message "WARN" "⚠️  Claude AI configured by default but verification failed - using traditional analysis"
+            fi
+        else
+            use_claude_ai="false"
+        fi
+    fi
+    
     if [[ "$verbose" == "true" ]]; then
         log_message "INFO" "Analyzing last $days days..."
         log_message "INFO" "Output method: $output_method"
+        log_message "INFO" "Claude AI: $([[ \"$use_claude_ai\" == \"true\" ]] && echo \"enabled\" || echo \"disabled\")"
     fi
     
     # Get work items
@@ -593,7 +1058,31 @@ main() {
         exit 1
     fi
     
-    # Generate output
+    # Use Claude AI analysis if enabled and available
+    if [[ "$use_claude_ai" == "true" ]]; then
+        local claude_error_output
+        claude_error_output=$(invoke_claude_analysis "$work_items_file" "$days" "$output_method" 2>&1)
+        
+        if [[ $? -eq 0 ]]; then
+            log_message "SUCCESS" "✅ Analysis completed with Claude AI enhancement"
+            exit 0
+        else
+            # Extract error message for display
+            local claude_error_reason=""
+            if echo "$claude_error_output" | grep -q "ERROR:"; then
+                claude_error_reason=$(echo "$claude_error_output" | grep "ERROR:" | head -1 | sed 's/ERROR: //')
+            else
+                claude_error_reason="Unknown error occurred"
+            fi
+            
+            log_message "INFO" "ℹ️  Falling back to traditional analysis"
+            
+            # Store error for summary display
+            export CLAUDE_FAILURE_REASON="$claude_error_reason"
+        fi
+    fi
+    
+    # Generate traditional output
     case "$output_method" in
         browser)
             generate_html_output "$work_items_file" "$days" "true"

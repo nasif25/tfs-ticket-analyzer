@@ -20,6 +20,8 @@ import configparser
 import smtplib
 from email.mime.text import MimeText
 from email.mime.multipart import MimeMultipart
+import tempfile
+import shlex
 
 try:
     import requests
@@ -81,6 +83,7 @@ class TFSAnalyzer:
         self.config_manager = CrossPlatformConfig()
         self.config = self.config_manager.load_config()
         self.session = requests.Session()
+        self.claude_config_file = Path(__file__).parent / 'claude-code-config.json'
         
     def setup_config(self, use_windows_auth: bool = False):
         """Interactive configuration setup"""
@@ -158,6 +161,248 @@ class TFSAnalyzer:
             'smtp_server': smtp_server,
             'smtp_port': str(smtp_port)
         })
+    
+    def test_claude_configuration(self):
+        """Test Claude AI configuration"""
+        print("🔍 Testing Claude AI configuration...")
+        
+        # Step 1: Test Claude Code CLI availability
+        print("Step 1: Testing Claude Code CLI availability")
+        try:
+            result = subprocess.run(['claude-code', '--help'], 
+                                 capture_output=True, text=True, check=True)
+            print("✅ Claude Code CLI found")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("❌ Claude Code CLI not found")
+            print("Solution: Install Claude Code from https://claude.ai/code")
+            return False
+        
+        # Step 2: Test authentication methods  
+        print("Step 2: Testing authentication methods")
+        auth_available = False
+        
+        # Test Azure CLI
+        try:
+            subprocess.run(['az', 'account', 'show'], 
+                         capture_output=True, text=True, check=True)
+            print("✅ Azure CLI authentication verified")
+            auth_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        
+        # Test PAT availability
+        if not auth_available and self.config.get('pat'):
+            print("✅ PAT authentication available")
+            auth_available = True
+        
+        if not auth_available:
+            print("❌ No valid authentication method found")
+            print("Solution: Run 'az login' or ensure PAT is configured")
+            return False
+        
+        # Step 3: Test Claude Code MCP configuration
+        print("Step 3: Testing Claude Code MCP configuration")
+        if self.claude_config_file.exists():
+            print("✅ Claude Code MCP configuration found")
+        else:
+            print("⚠️  Claude Code MCP configuration not found")
+            print("Will create during setup")
+        
+        # Step 4: Test Claude Code basic functionality
+        print("Step 4: Testing Claude Code basic functionality")
+        try:
+            result = subprocess.run(['claude-code', '--version'], 
+                                 capture_output=True, text=True, check=True)
+            print("✅ Claude Code basic functionality verified")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("⚠️  Claude Code basic test failed")
+        
+        print()
+        print("✅ Claude AI configuration test completed!")
+        return True
+    
+    def setup_claude_config(self):
+        """Setup Claude AI integration"""
+        print("🤖 Claude AI Integration Setup")
+        print("=" * 40)
+        print("This will configure AI-powered ticket analysis with enhanced insights.")
+        print()
+        
+        # Step 1: Test Claude Code availability
+        try:
+            result = subprocess.run(['claude-code', '--help'], 
+                                 capture_output=True, text=True, check=True)
+            print("✅ Claude Code CLI found")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("❌ Claude Code CLI not found. Please install Claude Code first:")
+            print()
+            print("📥 Installation Steps:")
+            print("1. Visit: https://claude.ai/code")
+            print("2. Download and install Claude Code")
+            print("3. Follow the setup instructions")
+            print("4. Restart your terminal")
+            print("5. Run this setup again: python tfs-analyzer.py --setup-claude")
+            print()
+            return False
+        
+        # Step 2: Load existing configuration
+        if not self.config:
+            print("❌ Main configuration not found. Please run: python tfs-analyzer.py --setup")
+            return False
+        
+        print()
+        print("📋 Claude AI Features:")
+        print("• Intelligent priority assessment with AI reasoning")
+        print("• Smart content summarization and key point extraction")
+        print("• Actionable recommendations for next steps")
+        print("• Impact analysis and risk assessment")
+        print("• Enhanced decision tracking from ticket history")
+        print()
+        
+        enable_claude = input("Enable Claude AI analysis by default? (y/n): ").strip().lower()
+        use_claude_by_default = enable_claude in ['y', 'yes']
+        
+        # Step 3: Configure authentication
+        print()
+        print("🔐 Authentication Configuration:")
+        print("Claude Code supports multiple authentication methods:")
+        print("1. Azure CLI (Recommended) - Uses your current Azure login")
+        print("2. Personal Access Token - Uses stored PAT from main config")
+        print()
+        
+        # Test available authentication methods
+        azure_cli_auth = False
+        pat_available = bool(self.config.get('pat'))
+        
+        try:
+            subprocess.run(['az', 'account', 'show'], 
+                         capture_output=True, text=True, check=True)
+            azure_cli_auth = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        
+        print("📊 Authentication Status:")
+        if azure_cli_auth:
+            print("✅ Azure CLI: Authenticated and ready")
+        else:
+            print("❌ Azure CLI: Not authenticated (run 'az login')")
+        
+        if pat_available:
+            print("✅ PAT: Available from main configuration") 
+        else:
+            print("❌ PAT: Not configured")
+        
+        print()
+        auth_choice = input("Choose primary authentication method (1 for Azure CLI, 2 for PAT): ").strip()
+        use_azure_cli = auth_choice == "1"
+        
+        if use_azure_cli and not azure_cli_auth:
+            print("⚠️  Azure CLI selected but not authenticated.")
+            print("Please run: az login")
+            print()
+            continue_anyway = input("Continue with PAT as fallback? (y/n): ").strip().lower()
+            if continue_anyway not in ['y', 'yes']:
+                print("Setup cancelled. Please run 'az login' and try again.")
+                return False
+            use_azure_cli = False
+        
+        if not use_azure_cli and not pat_available:
+            print("❌ No valid authentication method available.")
+            print("Please either:")
+            print("1. Run 'az login' to authenticate Azure CLI, or")
+            print("2. Run 'python tfs-analyzer.py --setup' to configure PAT")
+            return False
+        
+        # Step 4: Configure Azure DevOps Organization URL
+        print()
+        print("🔗 Azure DevOps Configuration:")
+        azure_devops_org_url = input("Enter your Azure DevOps Organization URL (e.g., https://dev.azure.com/yourorg): ").strip()
+        
+        if not azure_devops_org_url:
+            print("❌ Azure DevOps Organization URL is required for Claude AI integration.")
+            return False
+        
+        # Validate URL format
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(azure_devops_org_url)
+            if not parsed.scheme or not parsed.netloc:
+                raise ValueError("Invalid URL")
+            if parsed.scheme != 'https':
+                print("⚠️  Warning: HTTPS is recommended for security")
+        except ValueError:
+            print("❌ Invalid URL format. Please enter a valid Azure DevOps URL.")
+            return False
+        
+        # Step 5: Create Claude Code configuration
+        print("Setting up Claude Code MCP server configuration...")
+        
+        # Ensure Claude config directory exists
+        self.claude_config_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        claude_config = {
+            "mcpServers": {
+                "azure-devops": {
+                    "command": "npx",
+                    "args": ["@anthropic/mcp-server-azure-devops"],
+                    "env": {
+                        "AZURE_DEVOPS_ORG_URL": azure_devops_org_url
+                    }
+                }
+            }
+        }
+        
+        # Save Claude Code configuration
+        try:
+            with open(self.claude_config_file, 'w') as f:
+                json.dump(claude_config, f, indent=4)
+            print(f"✅ Claude Code MCP configuration created")
+            
+            # Create backup in script directory
+            backup_path = Path(__file__).parent / 'claude-code-config.json'
+            try:
+                with open(backup_path, 'w') as f:
+                    json.dump(claude_config, f, indent=4)
+                print(f"✅ Backup configuration created at: {backup_path}")
+            except Exception:
+                pass
+                
+        except Exception as e:
+            print(f"❌ Failed to save Claude configuration: {e}")
+            return False
+        
+        # Step 6: Update main config with Claude AI settings
+        self.config['use_claude_ai'] = 'true' if use_claude_by_default else 'false'
+        self.config['azure_devops_org_url'] = azure_devops_org_url
+        self.config['use_azure_cli'] = 'true' if use_azure_cli else 'false'
+        self.config_manager.save_config(self.config)
+        print("✅ Claude AI configuration saved")
+        
+        # Step 7: Run comprehensive verification
+        print()
+        print("🧪 Running Configuration Verification...")
+        verification_passed = self.test_claude_configuration()
+        
+        if verification_passed:
+            print()
+            print("🎉 Claude AI integration setup completed successfully!")
+            print()
+            print("📝 Next Steps:")
+            print("• Test with: python tfs-analyzer.py 1 -c -b")
+            print("• Use -d flag for troubleshooting if needed")
+            print("• Run --test-auth to verify authentication setup")
+            print()
+            print("🚀 Claude AI is now ready to enhance your ticket analysis!")
+        else:
+            print("⚠️  Setup completed with warnings. Some features may not work properly.")
+            print()
+            print("🛠️  Troubleshooting Tips:")
+            print("• Run: python tfs-analyzer.py --test-claude")
+            print("• Check authentication with: az login")
+            print("• Verify Claude Code installation")
+            print("• Use -d flag for debug information")
+        
+        return True
     
     def test_auth(self) -> bool:
         """Test TFS authentication"""
@@ -358,13 +603,159 @@ class TFSAnalyzer:
             else:
                 return "Medium - Feature/functionality impact"
     
-    def generate_output(self, work_items: List[Dict[str, Any]], output_type: str, days: int):
+    def invoke_claude_analysis(self, work_items: List[Dict[str, Any]], days: int, output_type: str) -> tuple[bool, str]:
+        """Invoke Claude AI for enhanced analysis"""
+        print("🤖 Starting Claude AI enhanced analysis...")
+        
+        # Step 1: Verify Claude Code is available
+        try:
+            subprocess.run(['claude-code', '--version'], 
+                         capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            error_msg = "Claude Code CLI not found. Run setup-claude first."
+            return False, error_msg
+        
+        # Step 2: Verify authentication
+        auth_available = False
+        try:
+            # Try Azure CLI first
+            subprocess.run(['az', 'account', 'show'], 
+                         capture_output=True, text=True, check=True)
+            print("✅ Using Azure CLI authentication for Claude analysis")
+            auth_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fall back to PAT
+            if self.config.get('pat'):
+                print("✅ Using Personal Access Token for Claude analysis")
+                os.environ['AZURE_DEVOPS_PAT'] = self.config['pat']
+                auth_available = True
+            else:
+                error_msg = "No valid authentication method available. Configure Azure CLI or PAT."
+                return False, error_msg
+        
+        if not auth_available:
+            error_msg = "Authentication verification failed."
+            return False, error_msg
+        
+        # Step 3: Verify Claude Code MCP configuration
+        if not self.claude_config_file.exists():
+            print("⚠️  Claude Code MCP configuration not found. This may cause issues.")
+            print(f"Consider running: python {Path(__file__).name} --setup-claude")
+        
+        # Create analysis request
+        analysis_request = f"""
+Please analyze the following TFS work items from the last {days} days and provide:
+
+1. Enhanced Priority Analysis - Review each work item and provide intelligent priority rankings
+2. Action Recommendations - Suggest specific next steps for each item  
+3. Risk Assessment - Identify potential risks or blockers
+4. Summary Insights - Overall patterns and key focus areas
+
+Work Items Data:
+{json.dumps(work_items, indent=2)}
+
+Please format the response as structured analysis with clear sections for each work item, including priority level (HIGH/MEDIUM/LOW), recommended actions, and risk factors.
+"""
+        
+        # Create temporary files
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_request:
+            temp_request.write(analysis_request)
+            temp_request_path = temp_request.name
+        
+        try:
+            # Invoke Claude Code using stdin with timeout
+            result = subprocess.run(
+                ['claude-code', '--print', '--output-format', 'json'], 
+                input=analysis_request,
+                capture_output=True, 
+                text=True,
+                timeout=120
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                print("✅ Claude AI analysis completed")
+                
+                # Generate enhanced output
+                self._generate_enhanced_output(work_items, result.stdout, days, output_type)
+                return True, ""
+            else:
+                error_msg = "Claude returned empty response"
+                if result.stderr:
+                    error_detail = ' '.join(result.stderr.split('\n')[:3]).strip()
+                    if error_detail:
+                        error_msg = f"{error_msg}: {error_detail}"
+                return False, error_msg
+                
+        except subprocess.TimeoutExpired:
+            error_msg = "Command timed out after 120 seconds"
+            return False, error_msg
+        except Exception as e:
+            error_msg = f"Claude Code execution failed: {str(e)}"
+            return False, error_msg
+        finally:
+            # Cleanup
+            try:
+                os.unlink(temp_request_path)
+            except:
+                pass
+    
+    def _generate_enhanced_output(self, work_items: List[Dict[str, Any]], claude_response: str, days: int, output_type: str):
+        """Generate enhanced output with Claude AI insights"""
+        print("🧠 Generating enhanced analysis with Claude AI insights")
+        
+        if output_type in ['browser', 'html']:
+            self._generate_enhanced_html_output(work_items, claude_response, days, output_type == 'browser')
+        elif output_type == 'text':
+            self._generate_enhanced_text_output(work_items, claude_response, days)
+        elif output_type == 'console':
+            self._generate_enhanced_console_output(work_items, claude_response, days)
+        elif output_type == 'email':
+            self._send_enhanced_email_output(work_items, claude_response, days)
+        else:
+            self._generate_enhanced_console_output(work_items, claude_response, days)
+    
+    def _generate_enhanced_console_output(self, work_items: List[Dict[str, Any]], claude_response: str, days: int):
+        """Generate enhanced console output with Claude insights"""
+        print(f"\n🤖 TFS Ticket Analysis with Claude AI - Last {days} days")
+        print("=" * 70)
+        print(f"📅 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"📊 Total items: {len(work_items)}")
+        print(f"🧠 Enhanced with Claude AI analysis")
+        print()
+        
+        # Display Claude's insights first
+        print("📋 Claude AI Insights:")
+        print("-" * 30)
+        # Show first 20 lines of Claude's response
+        claude_lines = claude_response.split('\n')[:20]
+        for line in claude_lines:
+            if line.strip():
+                print(f"   {line}")
+        if len(claude_response.split('\n')) > 20:
+            print("   ... (see detailed analysis in full report)")
+        print()
+        
+        # Then show traditional analysis
+        self._generate_console_output(work_items, days)
+    
+    def generate_output(self, work_items: List[Dict[str, Any]], output_type: str, days: int, use_claude: bool = False):
         """Generate output in specified format"""
         if not work_items:
             print("No work items found for the specified criteria.")
             return
         
-        # Analyze and sort work items
+        # Try Claude AI analysis first if requested
+        claude_error_reason = None
+        if use_claude:
+            success, error_msg = self.invoke_claude_analysis(work_items, days, output_type)
+            if success:
+                print("✅ Analysis completed with Claude AI enhancement")
+                return
+            else:
+                print("ℹ️  Falling back to traditional analysis")
+                claude_error_reason = error_msg
+        
+        # Analyze and sort work items (traditional method)
         analyzed_items = []
         for item in work_items:
             score, priority = self.calculate_priority_score(item)
@@ -381,17 +772,17 @@ class TFSAnalyzer:
         analyzed_items.sort(key=lambda x: x['priority_score'], reverse=True)
         
         if output_type in ['browser', 'html']:
-            self._generate_html_output(analyzed_items, days, output_type == 'browser')
+            self._generate_html_output(analyzed_items, days, output_type == 'browser', claude_error_reason)
         elif output_type == 'text':
-            self._generate_text_output(analyzed_items, days)
+            self._generate_text_output(analyzed_items, days, claude_error_reason)
         elif output_type == 'console':
-            self._generate_console_output(analyzed_items, days)
+            self._generate_console_output(analyzed_items, days, claude_error_reason)
         elif output_type == 'email':
-            self._send_email_output(analyzed_items, days)
+            self._send_email_output(analyzed_items, days, claude_error_reason)
     
-    def _generate_html_output(self, analyzed_items: List[Dict], days: int, open_browser: bool = False):
+    def _generate_html_output(self, analyzed_items: List[Dict], days: int, open_browser: bool = False, claude_error_reason: str = None):
         """Generate HTML output"""
-        html_content = self._build_html_report(analyzed_items, days)
+        html_content = self._build_html_report(analyzed_items, days, claude_error_reason)
         
         # Get appropriate output directory
         if sys.platform == 'win32':
@@ -414,13 +805,20 @@ class TFSAnalyzer:
             webbrowser.open(f'file://{output_file.absolute()}')
             print("🌐 Report opened in browser")
     
-    def _generate_text_output(self, analyzed_items: List[Dict], days: int):
+    def _generate_text_output(self, analyzed_items: List[Dict], days: int, claude_error_reason: str = None):
         """Generate text output"""
         lines = []
         lines.append(f"TFS Ticket Analysis - Last {days} days")
         lines.append("=" * 50)
         lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append(f"Total items: {len(analyzed_items)}")
+        
+        # Add Claude failure reason if present
+        if claude_error_reason:
+            lines.append("")
+            lines.append("Claude Analysis Failure Reason:")
+            lines.append(f"  • {claude_error_reason}")
+        
         lines.append("")
         
         for item_data in analyzed_items:
@@ -454,7 +852,7 @@ class TFSAnalyzer:
         
         print(f"📄 Text report saved to: {output_file}")
     
-    def _generate_console_output(self, analyzed_items: List[Dict], days: int):
+    def _generate_console_output(self, analyzed_items: List[Dict], days: int, claude_error_reason: str = None):
         """Generate console output with colors"""
         print(f"\n🎯 TFS Ticket Analysis - Last {days} days")
         print("=" * 60)
@@ -483,8 +881,14 @@ class TFSAnalyzer:
             print(f"   ⭐ Score: {item_data['priority_score']}")
             print(f"   💡 Action: {item_data['analysis']['action_items']}")
             print()
+        
+        # Display Claude failure reason if present
+        if claude_error_reason:
+            print("\033[93mClaude Analysis Failure Reason:\033[0m")  # Yellow text
+            print(f"  • {claude_error_reason}")
+            print()
     
-    def _build_html_report(self, analyzed_items: List[Dict], days: int) -> str:
+    def _build_html_report(self, analyzed_items: List[Dict], days: int, claude_error_reason: str = None) -> str:
         """Build HTML report content"""
         html_template = f"""
 <!DOCTYPE html>
@@ -520,7 +924,15 @@ class TFSAnalyzer:
         <p><strong>Total Items:</strong> {len(analyzed_items)}</p>
         <p><strong>High Priority:</strong> {len([i for i in analyzed_items if i['priority_level'] == 'HIGH'])}</p>
         <p><strong>Medium Priority:</strong> {len([i for i in analyzed_items if i['priority_level'] == 'MEDIUM'])}</p>
-        <p><strong>Low Priority:</strong> {len([i for i in analyzed_items if i['priority_level'] == 'LOW'])}</p>
+        <p><strong>Low Priority:</strong> {len([i for i in analyzed_items if i['priority_level'] == 'LOW'])}</p>"""
+        
+        if claude_error_reason:
+            html_template += f"""
+        <div style='background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 10px; margin: 10px 0;'>
+            <strong>⚠️ Claude Analysis Failure:</strong> {claude_error_reason}
+        </div>"""
+        
+        html_template += """
     </div>
 """
         
@@ -552,13 +964,13 @@ class TFSAnalyzer:
 """
         return html_template
     
-    def _send_email_output(self, analyzed_items: List[Dict], days: int):
+    def _send_email_output(self, analyzed_items: List[Dict], days: int, claude_error_reason: str = None):
         """Send email with HTML report"""
         if not all(k in self.config for k in ['email_address', 'email_password', 'smtp_server', 'smtp_port']):
             print("❌ Email configuration missing. Run setup first.")
             return
         
-        html_content = self._build_html_report(analyzed_items, days)
+        html_content = self._build_html_report(analyzed_items, days, claude_error_reason)
         
         msg = MimeMultipart('alternative')
         msg['Subject'] = f"TFS Ticket Analysis - Last {days} days"
@@ -593,17 +1005,32 @@ def setup_cron_job(output_method: str = 'console', time_str: str = '08:00'):
     print(f"\nThis will run daily at {time_str}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Cross-platform TFS Ticket Analyzer')
+    parser = argparse.ArgumentParser(description='Cross-platform TFS Ticket Analyzer with Claude AI support')
     parser.add_argument('days', nargs='?', default=1, type=int, help='Number of days to analyze')
+    
+    # Setup commands
     parser.add_argument('--setup', action='store_true', help='Run configuration setup')
+    parser.add_argument('--setup-claude', action='store_true', help='Setup Claude AI integration')
+    parser.add_argument('--test-claude', action='store_true', help='Test Claude AI configuration')
     parser.add_argument('--setup-output', action='store_true', help='Configure default output method')
     parser.add_argument('--test-auth', action='store_true', help='Test TFS authentication')
+    
+    # Simplified parameters
+    parser.add_argument('-b', '--browser', action='store_true', help='Open results in browser')
+    parser.add_argument('-h', '--html', action='store_true', help='Save as HTML file')
+    parser.add_argument('-t', '--text', action='store_true', help='Save as text file')
+    parser.add_argument('-e', '--email', action='store_true', help='Send via email')
+    parser.add_argument('-c', '--claude', action='store_true', help='Use Claude AI for enhanced analysis')
+    parser.add_argument('--no-ai', action='store_true', help='Disable Claude AI (traditional analysis only)')
+    parser.add_argument('-d', '--details', action='store_true', help='Show detailed processing information')
+    
+    # Traditional parameters for backward compatibility
     parser.add_argument('--output', choices=['browser', 'html', 'text', 'console', 'email'], help='Output method')
     parser.add_argument('--windows-auth', action='store_true', help='Use Windows authentication')
     parser.add_argument('--setup-cron', action='store_true', help='Setup daily cron job (Linux/Mac)')
     parser.add_argument('--cron-time', default='08:00', help='Cron job time (HH:MM format)')
-    parser.add_argument('--verbose', action='store_true', help='Verbose output')
-    parser.add_argument('--version', action='version', version='TFS Analyzer 2.0.0')
+    parser.add_argument('--verbose', action='store_true', help='Verbose output (same as --details)')
+    parser.add_argument('--version', action='version', version='TFS Analyzer 2.1.0')
     
     args = parser.parse_args()
     
@@ -615,6 +1042,14 @@ def main():
     
     if args.setup:
         analyzer.setup_config(args.windows_auth)
+        return
+    
+    if args.setup_claude:
+        analyzer.setup_claude_config()
+        return
+    
+    if hasattr(args, 'test_claude') and args.test_claude:
+        analyzer.test_claude_configuration()
         return
     
     if args.setup_output:
@@ -629,18 +1064,79 @@ def main():
         setup_cron_job(args.output or 'console', args.cron_time)
         return
     
-    # Determine output method
-    output_method = args.output
-    if not output_method:
+    # Determine output method from simplified parameters first
+    output_method = None
+    if args.browser:
+        output_method = 'browser'
+    elif args.html:
+        output_method = 'html'
+    elif args.text:
+        output_method = 'text'
+    elif args.email:
+        output_method = 'email'
+    elif args.output:
+        output_method = args.output
+    else:
         output_method = analyzer.config.get('default_output', 'console')
     
-    if args.verbose:
+    # Determine Claude AI usage
+    use_claude = args.claude
+    if args.claude:
+        # Verify Claude setup when explicitly requested
+        print("🔍 Verifying Claude AI configuration...")
+        if analyzer.test_claude_configuration():
+            print("✅ Claude AI verification passed - using AI analysis")
+            use_claude = True
+        else:
+            print("❌ Claude AI verification failed - falling back to traditional analysis")
+            print()
+            print("🛠️  Quick Fixes:")
+            print("• Run: python tfs-analyzer.py --setup-claude")
+            print("• Check: az login")
+            print("• Verify: Claude Code installation")
+            print()
+            use_claude = False
+    elif args.no_ai:
+        use_claude = False
+    else:
+        # Check if Claude AI is configured by default
+        default_claude = analyzer.config.get('use_claude_ai', 'false').lower() == 'true'
+        if default_claude:
+            # Quick verification for default usage (less verbose)
+            try:
+                subprocess.run(['claude-code', '--version'], 
+                             capture_output=True, check=True)
+                # Test authentication
+                auth_ok = False
+                try:
+                    subprocess.run(['az', 'account', 'show'], 
+                                 capture_output=True, check=True)
+                    auth_ok = True
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    if analyzer.config.get('pat'):
+                        auth_ok = True
+                
+                if auth_ok:
+                    use_claude = True
+                else:
+                    use_claude = False
+                    print("⚠️  Claude AI configured by default but verification failed - using traditional analysis")
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                use_claude = False
+                print("⚠️  Claude AI configured by default but Claude Code not found - using traditional analysis")
+        else:
+            use_claude = False
+    
+    # Verbose output
+    verbose = args.verbose or args.details
+    if verbose:
         print(f"🔍 Analyzing last {args.days} days...")
         print(f"📊 Output method: {output_method}")
+        print(f"🤖 Claude AI: {'enabled' if use_claude else 'disabled'}")
     
     # Get and analyze work items
     work_items = analyzer.get_work_items(args.days)
-    analyzer.generate_output(work_items, output_method, args.days)
+    analyzer.generate_output(work_items, output_method, args.days, use_claude)
 
 if __name__ == '__main__':
     main()

@@ -1,18 +1,31 @@
-# TFS Ticket Analyzer with Multiple Output Options
-# No SMTP server required - choose from multiple delivery methods
+# TFS Ticket Analyzer with Claude AI Integration
+# Enhanced with AI-powered analysis using Claude via Azure DevOps MCP Server
+# Supports both AI-enhanced and traditional analysis modes
 
 param(
     [Parameter(Position = 0)]
     [string]$Action = "analyze",
     [Parameter(Position = 1)]
     [int]$Days = 1,
+    [switch]$Html = $false,
+    [switch]$Email = $false,
+    [switch]$Browser = $false,
+    [switch]$Text = $false,
+    [switch]$Claude = $false,
+    [switch]$NoAI = $false,
+    [switch]$Details = $false,
+    # Backward compatibility aliases
     [switch]$SaveHtml = $false,
     [switch]$SendEmail = $false,
     [switch]$ShowInBrowser = $false,
-    [switch]$SaveText = $false
+    [switch]$SaveText = $false,
+    [switch]$UseClaude = $false,
+    [switch]$NoClaude = $false,
+    [switch]$VerboseOutput = $false
 )
 
 $ConfigFile = "$env:USERPROFILE\.tfs-analyzer-config"
+$ClaudeConfigFile = "$env:USERPROFILE\.tfs-analyzer-claude-config"
 
 # Colors for output
 $Colors = @{
@@ -24,7 +37,317 @@ $Colors = @{
 
 function Write-ColorOutput {
     param([string]$Message, [string]$Color)
-    Write-Host "[$($Color.ToUpper())] $Message" -ForegroundColor $Colors[$Color]
+    if (-not $Global:QuietMode) {
+        Write-Host "[$($Color.ToUpper())] $Message" -ForegroundColor $Colors[$Color]
+    }
+}
+
+function Write-DebugOutput {
+    param([string]$Message)
+    if ($Details -or $VerbosePreference -eq 'Continue') {
+        Write-Host "[DEBUG] $Message" -ForegroundColor Magenta
+    }
+}
+
+function Test-AzureCliAuthentication {
+    try {
+        Write-DebugOutput "Testing Azure CLI authentication..."
+        $accountInfo = az account show --query '{name:name, tenantId:tenantId}' -o json 2>$null
+        if ($accountInfo -and $accountInfo -ne "null" -and $accountInfo.Trim() -ne "") {
+            $account = $accountInfo | ConvertFrom-Json
+            Write-DebugOutput "Azure CLI authenticated as: $($account.name)"
+            return $true
+        }
+        return $false
+    } catch {
+        Write-DebugOutput "Azure CLI authentication test failed: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Test-ClaudeCodeAvailability {
+    try {
+        Write-DebugOutput "Testing Claude Code availability..."
+        $claudeHelp = claude --help 2>$null
+        if ($claudeHelp) {
+            Write-DebugOutput "Claude Code CLI found"
+            return $true
+        }
+        return $false
+    } catch {
+        Write-DebugOutput "Claude Code CLI not found: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Test-ClaudeConfiguration {
+    Write-ColorOutput "Testing Claude AI configuration..." "Info"
+    
+    # Step 1: Test Claude Code CLI availability
+    Write-DebugOutput "Step 1: Testing Claude Code CLI availability"
+    $claudeAvailable = Test-ClaudeCodeAvailability
+    if (-not $claudeAvailable) {
+        Write-ColorOutput "❌ Claude Code CLI not found" "Error"
+        Write-Host "Solution: Install Claude Code from https://claude.ai/code"
+        return $false
+    }
+    Write-ColorOutput "✅ Claude Code CLI found" "Success"
+    
+    # Step 2: Test authentication
+    Write-DebugOutput "Step 2: Testing authentication methods"
+    $azureCliAuth = Test-AzureCliAuthentication
+    $config = Load-Configuration
+    $patAvailable = -not [string]::IsNullOrWhiteSpace($config.PAT)
+    
+    if ($azureCliAuth) {
+        Write-ColorOutput "✅ Azure CLI authentication verified" "Success"
+    } elseif ($patAvailable) {
+        Write-ColorOutput "✅ PAT authentication available" "Success"
+    } else {
+        Write-ColorOutput "❌ No valid authentication method found" "Error"
+        Write-Host "Solution: Run 'az login' or ensure PAT is configured"
+        return $false
+    }
+    
+    # Step 3: Test Azure DevOps connectivity
+    Write-DebugOutput "Step 3: Testing Azure DevOps connectivity"
+    try {
+        $headers = Get-Headers -Config $config
+        if ($headers) {
+            Write-ColorOutput "✅ Azure DevOps connectivity verified" "Success"
+        } else {
+            Write-ColorOutput "❌ Azure DevOps connectivity failed" "Error"
+            return $false
+        }
+    } catch {
+        Write-ColorOutput "❌ Azure DevOps connectivity failed: $($_.Exception.Message)" "Error"
+        return $false
+    }
+    
+    # Step 4: Test Claude Code MCP server configuration
+    Write-DebugOutput "Step 4: Testing Claude Code MCP configuration"
+    $mcpConfigPath = "$env:USERPROFILE\.claude\claude_desktop_config.json"
+    $mcpAlternatePath = "$PSScriptRoot\claude-code-config.json"
+    
+    $mcpConfigExists = (Test-Path $mcpConfigPath) -or (Test-Path $mcpAlternatePath)
+    if ($mcpConfigExists) {
+        Write-ColorOutput "✅ Claude Code MCP configuration found" "Success"
+    } else {
+        Write-ColorOutput "⚠️  Claude Code MCP configuration not found, will create during setup" "Warning"
+    }
+    
+    # Step 5: Test Claude Code connection (optional quick test)
+    Write-DebugOutput "Step 5: Testing Claude Code basic functionality"
+    try {
+        $testResult = claude --help 2>$null
+        if ($testResult) {
+            Write-ColorOutput "✅ Claude Code basic functionality verified" "Success"
+        } else {
+            Write-ColorOutput "⚠️  Claude Code basic test inconclusive" "Warning"
+        }
+    } catch {
+        Write-ColorOutput "⚠️  Claude Code basic test failed: $($_.Exception.Message)" "Warning"
+    }
+    
+    Write-Host ""
+    Write-ColorOutput "Claude AI configuration test completed!" "Success"
+    return $true
+}
+
+function Setup-ClaudeConfiguration {
+    Write-ColorOutput "Setting up Claude AI integration..." "Info"
+    Write-Host "This will configure AI-powered ticket analysis with enhanced insights."
+    Write-Host ""
+    
+    # Step 1: Test Claude Code availability
+    Write-DebugOutput "Testing Claude Code availability..."
+    $claudeAvailable = Test-ClaudeCodeAvailability
+    if (-not $claudeAvailable) {
+        Write-ColorOutput "❌ Claude Code CLI not found. Please install Claude Code first:" "Error"
+        Write-Host ""
+        Write-Host "📥 Installation Steps:"
+        Write-Host "1. Visit: https://claude.ai/code"
+        Write-Host "2. Download and install Claude Code"
+        Write-Host "3. Follow the setup instructions"
+        Write-Host "4. Restart your terminal/PowerShell"
+        Write-Host "5. Run this setup again: .\tfs-analyzer.ps1 setup-claude"
+        Write-Host ""
+        return $false
+    }
+    Write-ColorOutput "✅ Claude Code CLI found" "Success"
+    
+    # Step 2: Load existing configuration
+    try {
+        $config = Load-Configuration
+    } catch {
+        Write-ColorOutput "❌ Main configuration not found. Please run: .\tfs-analyzer.ps1 setup" "Error"
+        return $false
+    }
+    
+    Write-Host ""
+    Write-ColorOutput "📋 Claude AI Features:" "Info"
+    Write-Host "• Intelligent priority assessment with AI reasoning"
+    Write-Host "• Smart content summarization and key point extraction"
+    Write-Host "• Actionable recommendations for next steps"
+    Write-Host "• Impact analysis and risk assessment"
+    Write-Host "• Enhanced decision tracking from ticket history"
+    Write-Host ""
+    
+    $enableClaude = Read-Host "Enable Claude AI analysis by default? (y/n)"
+    $useClaudeByDefault = $enableClaude -eq "y" -or $enableClaude -eq "Y" -or $enableClaude -eq "yes"
+    
+    # Step 3: Configure authentication
+    Write-Host ""
+    Write-ColorOutput "🔐 Authentication Configuration:" "Info"
+    Write-Host "Claude Code supports multiple authentication methods:"
+    Write-Host "1. Azure CLI (Recommended) - Uses your current Azure login"
+    Write-Host "2. Personal Access Token - Uses stored PAT from main config"
+    Write-Host ""
+    
+    # Test available authentication methods
+    $azureCliAuth = Test-AzureCliAuthentication
+    $patAvailable = -not [string]::IsNullOrWhiteSpace($config.PAT)
+    
+    Write-Host "📊 Authentication Status:"
+    if ($azureCliAuth) {
+        Write-ColorOutput "✅ Azure CLI: Authenticated and ready" "Success"
+    } else {
+        Write-ColorOutput "❌ Azure CLI: Not authenticated (run 'az login')" "Warning"
+    }
+    
+    if ($patAvailable) {
+        Write-ColorOutput "✅ PAT: Available from main configuration" "Success"
+    } else {
+        Write-ColorOutput "❌ PAT: Not configured" "Warning"
+    }
+    
+    Write-Host ""
+    $authChoice = Read-Host "Choose primary authentication method (1 for Azure CLI, 2 for PAT)"
+    $useAzureCli = $authChoice -eq "1"
+    
+    if ($useAzureCli -and -not $azureCliAuth) {
+        Write-ColorOutput "⚠️  Azure CLI selected but not authenticated." "Warning"
+        Write-Host "Please run: az login"
+        Write-Host ""
+        $continueAnyway = Read-Host "Continue with PAT as fallback? (y/n)"
+        if ($continueAnyway -ne "y" -and $continueAnyway -ne "Y") {
+            Write-ColorOutput "Setup cancelled. Please run 'az login' and try again." "Warning"
+            return $false
+        }
+        $useAzureCli = $false
+    }
+    
+    if (-not $useAzureCli -and -not $patAvailable) {
+        Write-ColorOutput "❌ No valid authentication method available." "Error"
+        Write-Host "Please either:"
+        Write-Host "1. Run 'az login' to authenticate Azure CLI, or"
+        Write-Host "2. Run '.\tfs-analyzer.ps1 setup' to configure PAT"
+        return $false
+    }
+    
+    # Step 4: Configure Azure DevOps Organization URL
+    Write-Host ""
+    Write-ColorOutput "🔗 Azure DevOps Configuration:" "Info"
+    $azureDevOpsOrgUrl = Read-Host "Enter your Azure DevOps Organization URL"
+    
+    if ([string]::IsNullOrWhiteSpace($azureDevOpsOrgUrl)) {
+        Write-ColorOutput "❌ Azure DevOps Organization URL is required for Claude AI integration." "Error"
+        return $false
+    }
+    
+    # Validate URL format
+    try {
+        $uri = [System.Uri]$azureDevOpsOrgUrl
+        if ($uri.Scheme -ne "https") {
+            Write-ColorOutput "⚠️  Warning: HTTPS is recommended for security" "Warning"
+        }
+    } catch {
+        Write-ColorOutput "❌ Invalid URL format. Please enter a valid Azure DevOps URL." "Error"
+        return $false
+    }
+    
+    # Step 5: Create Claude configuration
+    Write-DebugOutput "Creating Claude configuration..."
+    $claudeConfig = @{
+        USE_CLAUDE_BY_DEFAULT = $useClaudeByDefault.ToString().ToLower()
+        USE_AZURE_CLI = $useAzureCli.ToString().ToLower()
+        CLAUDE_AVAILABLE = "true"
+        AZURE_DEVOPS_ORG_URL = $azureDevOpsOrgUrl
+    }
+    
+    # Save configuration
+    $configLines = @()
+    foreach ($key in $claudeConfig.Keys) {
+        $configLines += "$key=$($claudeConfig[$key])"
+    }
+    $configLines -join "`n" | Out-File -FilePath $ClaudeConfigFile -Encoding UTF8
+    Write-ColorOutput "✅ Claude AI configuration saved" "Success"
+    
+    # Step 6: Create Claude Code MCP server configuration
+    Write-DebugOutput "Setting up Claude Code MCP server configuration..."
+    $mcpSuccess = Setup-ClaudeCodeMcpConfig -AzureDevOpsUrl $azureDevOpsOrgUrl -UseAzureCli $useAzureCli
+    if (-not $mcpSuccess) {
+        Write-ColorOutput "⚠️  Claude Code MCP configuration failed, but Claude AI is still configured" "Warning"
+    }
+    
+    # Step 7: Run comprehensive verification
+    Write-Host ""
+    Write-ColorOutput "🧪 Running Configuration Verification..." "Info"
+    $verificationPassed = Test-ClaudeConfiguration
+    
+    if ($verificationPassed) {
+        Write-Host ""
+        Write-ColorOutput "🎉 Claude AI integration setup completed successfully!" "Success"
+        Write-Host ""
+        Write-Host "📝 Next Steps:"
+        Write-Host "• Test with: .\tfs-analyzer.ps1 1 -Claude -Browser"
+        Write-Host "• Use -Details flag for troubleshooting if needed"
+        Write-Host "• Run 'test-auth' to verify authentication setup"
+        Write-Host ""
+        Write-Host "🚀 Claude AI is now ready to enhance your ticket analysis!"
+    } else {
+        Write-ColorOutput "⚠️  Setup completed with warnings. Some features may not work properly." "Warning"
+        Write-Host ""
+        Write-Host "🛠️  Troubleshooting Tips:"
+        Write-Host "• Run: .\tfs-analyzer.ps1 test-claude"
+        Write-Host "• Check authentication with: az login"
+        Write-Host "• Verify Claude Code installation"
+        Write-Host "• Use -Details flag for debug information"
+    }
+    
+    return $true
+}
+
+function Setup-ClaudeCodeMcpConfig {
+    param(
+        [string]$AzureDevOpsUrl,
+        [bool]$UseAzureCli
+    )
+    
+    Write-ColorOutput "Setting up Claude Code MCP server configuration..." "Info"
+    
+    $claudeCodeConfigPath = "$PSScriptRoot\claude-code-config.json"
+    
+    $configContent = @"
+{
+    "mcpServers": {
+        "azure-devops": {
+            "command": "npx",
+            "args": ["@anthropic/mcp-server-azure-devops"],
+            "env": {
+                "AZURE_DEVOPS_ORG_URL": "$AzureDevOpsUrl"
+            }
+        }
+    }
+}
+"@
+    
+    $configContent | Out-File -FilePath $claudeCodeConfigPath -Encoding UTF8
+    Write-ColorOutput "✅ Claude Code MCP configuration created" "Success"
+    Write-Host "• Configuration saved to: $claudeCodeConfigPath"
+    Write-Host "• Azure DevOps Organization: $AzureDevOpsUrl"
+    
+    return $true
 }
 
 function Setup-OutputConfiguration {
@@ -89,7 +412,7 @@ function Setup-OutputConfiguration {
 }
 
 function Save-HtmlSummary {
-    param([hashtable]$Config, [array]$AllTickets, [int]$Days, [string]$TfsUrl, [string]$ProjectName)
+    param([hashtable]$Config, [array]$AllTickets, [int]$Days, [string]$TfsUrl, [string]$ProjectName, [bool]$ShowInBrowser = $false)
     
     $HtmlPath = if ($Config.HTML_PATH) { $Config.HTML_PATH } else { "$env:USERPROFILE\Documents\TFS-Daily-Summary.html" }
     
@@ -300,6 +623,7 @@ function Save-HtmlSummary {
     Write-ColorOutput "HTML summary saved to: $HtmlPath" "Success"
     
     # Open in browser if configured
+    Write-Host "DEBUG: Browser check: OPEN_BROWSER=$($Config.OPEN_BROWSER), ShowInBrowser=$ShowInBrowser" -ForegroundColor Yellow
     if ($Config.OPEN_BROWSER -eq "True" -or $ShowInBrowser) {
         Start-Process $HtmlPath
         Write-ColorOutput "Opening summary in your default browser..." "Info"
@@ -425,25 +749,54 @@ function Save-TextSummary {
 # Include all the existing functions from the original script
 function Setup-Configuration {
     Write-ColorOutput "Setting up TFS configuration..." "Info"
-    Write-Host "This script will help you configure access to your TFS server."
+    Write-Host "This script will help you configure access to your TFS/Azure DevOps server."
     Write-Host ""
     
-    $TfsUrl = Read-Host "Enter your TFS Organization URL (e.g., https://tfs.deltek.com/tfs/Deltek)"
+    $TfsUrl = Read-Host "Enter your TFS/Azure DevOps Organization URL (e.g., https://tfs.deltek.com/tfs/Deltek)"
     $ProjectName = Read-Host "Enter your Project Name (e.g., TIP)"
     
     Write-Host ""
     Write-ColorOutput "Choose your authentication method:" "Info"
-    Write-Host "1. Personal Access Token (PAT) - Recommended"
-    Write-Host "2. Windows Authentication - For on-premise TFS"
-    $AuthChoice = Read-Host "Enter your choice (1 or 2)"
+    Write-Host "1. Azure CLI Authentication (Recommended) - Uses your current Azure login"
+    Write-Host "2. Personal Access Token (PAT) - Uses stored token"
+    Write-Host "3. Windows Authentication - For on-premise TFS only"
+    $AuthChoice = Read-Host "Enter your choice (1, 2, or 3)"
     
     $UseWindowsAuth = $false
+    $UseAzureCli = $false
     $Pat = ""
     
-    if ($AuthChoice -eq "2") {
-        $UseWindowsAuth = $true
-        Write-ColorOutput "Using Windows Authentication" "Info"
-    } else {
+    switch ($AuthChoice) {
+        "1" {
+            Write-ColorOutput "Using Azure CLI Authentication" "Info"
+            $UseAzureCli = $true
+            
+            # Test Azure CLI authentication
+            $azureCliAuth = Test-AzureCliAuthentication
+            if (-not $azureCliAuth) {
+                Write-ColorOutput "Azure CLI not authenticated. Please run 'az login' first." "Warning"
+                $fallbackChoice = Read-Host "Do you want to: (1) Exit and run 'az login', (2) Use PAT instead"
+                if ($fallbackChoice -eq "2") {
+                    $UseAzureCli = $false
+                    Write-ColorOutput "Switching to PAT authentication..." "Info"
+                } else {
+                    Write-ColorOutput "Please run 'az login' and run setup again." "Info"
+                    return
+                }
+            } else {
+                Write-ColorOutput "Azure CLI authentication verified!" "Success"
+            }
+        }
+        "3" {
+            $UseWindowsAuth = $true
+            Write-ColorOutput "Using Windows Authentication" "Info"
+        }
+        default {
+            Write-ColorOutput "Using PAT Authentication" "Info"
+        }
+    }
+    
+    if (-not $UseWindowsAuth -and -not $UseAzureCli) {
         Write-Host ""
         Write-ColorOutput "PAT Setup Guide:" "Info"
         Write-Host "1. Go to: $TfsUrl"
@@ -461,17 +814,32 @@ function Setup-Configuration {
     
     $UserDisplayName = Read-Host "Enter your display name for @mentions (e.g., John Doe)"
     
-    # Save configuration
-    $ConfigText = "TFS_URL=$TfsUrl`nPROJECT_NAME=$ProjectName`nPAT=$Pat`nUSER_DISPLAY_NAME=$UserDisplayName`nUSE_WINDOWS_AUTH=$UseWindowsAuth"
+    # Save main configuration
+    $ConfigText = "TFS_URL=$TfsUrl`nPROJECT_NAME=$ProjectName`nPAT=$Pat`nUSER_DISPLAY_NAME=$UserDisplayName`nUSE_WINDOWS_AUTH=$UseWindowsAuth`nUSE_AZURE_CLI=$UseAzureCli"
     $ConfigText | Out-File -FilePath $ConfigFile -Encoding UTF8
     
     Write-ColorOutput "Configuration saved!" "Success"
-    Write-Host "Next step: Configure output preferences with: .\tfs-ticket-analyzer-multi-output.ps1 setup-output"
+    
+    # Ask about Claude integration
+    Write-Host ""
+    Write-ColorOutput "AI Enhancement Setup:" "Info"
+    Write-Host "This analyzer can use Claude AI for enhanced ticket analysis."
+    $setupClaude = Read-Host "Set up Claude AI integration? (y/n)"
+    
+    if ($setupClaude -eq "y" -or $setupClaude -eq "Y" -or $setupClaude -eq "yes") {
+        Setup-ClaudeConfiguration
+    } else {
+        # Create minimal Claude config indicating it's disabled
+        "USE_CLAUDE_BY_DEFAULT=false`nCLAUDE_AVAILABLE=false" | Out-File -FilePath $ClaudeConfigFile -Encoding UTF8
+    }
+    
+    Write-Host ""
+    Write-Host "Next step: Configure output preferences with: .\tfs-analyzer.ps1 setup-output"
 }
 
 function Load-Configuration {
     if (-not (Test-Path $ConfigFile)) {
-        Write-ColorOutput "Configuration not found. Please run: .\tfs-ticket-analyzer-multi-output.ps1 setup" "Error"
+        Write-ColorOutput "Configuration not found. Please run: .\tfs-analyzer.ps1 setup" "Error"
         exit 1
     }
     
@@ -482,7 +850,349 @@ function Load-Configuration {
         }
     }
     
+    # Load Claude configuration if available
+    if (Test-Path $ClaudeConfigFile) {
+        Get-Content $ClaudeConfigFile | ForEach-Object {
+            if ($_ -match '^(.+?)=(.*)$') {
+                $Config[$matches[1]] = $matches[2]
+            }
+        }
+    } else {
+        # Default Claude settings if no config exists
+        $Config['USE_CLAUDE_BY_DEFAULT'] = 'false'
+        $Config['CLAUDE_AVAILABLE'] = 'false'
+        $Config['USE_AZURE_CLI'] = 'false'
+    }
+    
     return $Config
+}
+
+function Load-ClaudeConfiguration {
+    $claudeConfig = @{
+        USE_CLAUDE_BY_DEFAULT = 'false'
+        CLAUDE_AVAILABLE = 'false'
+        USE_AZURE_CLI = 'false'
+    }
+    
+    if (Test-Path $ClaudeConfigFile) {
+        Get-Content $ClaudeConfigFile | ForEach-Object {
+            if ($_ -match '^(.+?)=(.*)$') {
+                $claudeConfig[$matches[1]] = $matches[2]
+            }
+        }
+    }
+    
+    return $claudeConfig
+}
+
+function Invoke-ClaudeAnalysis {
+    param(
+        [hashtable]$Config,
+        [string]$WorkItemId,
+        [string]$ProjectName,
+        [object]$WorkItemData
+    )
+    
+    try {
+        Write-DebugOutput "Starting Claude AI analysis for work item $WorkItemId"
+        
+        # Step 1: Verify Claude Code is available
+        $claudeAvailable = Test-ClaudeCodeAvailability
+        if (-not $claudeAvailable) {
+            Write-ColorOutput "Claude Code CLI not available. Run setup-claude first." "Warning"
+            return @{ Error = "Claude Code CLI not found. Run setup-claude first." }
+        }
+        
+        # Step 2: Verify authentication
+        $azureCliAuth = Test-AzureCliAuthentication
+        $patAvailable = -not [string]::IsNullOrWhiteSpace($Config.PAT)
+        
+        if (-not $azureCliAuth -and -not $patAvailable) {
+            Write-ColorOutput "No valid authentication method available for Claude analysis" "Warning"
+            return @{ Error = "No valid authentication method available. Configure Azure CLI or PAT." }
+        }
+        
+        # Set up environment for Azure DevOps MCP server
+        if (-not $azureCliAuth -and $patAvailable) {
+            Write-DebugOutput "Using PAT for Azure DevOps MCP server authentication"
+            $env:AZURE_DEVOPS_PAT = $Config.PAT
+        }
+        
+        Write-DebugOutput "Authentication verified for Claude analysis"
+        
+        # Create a temporary file with work item data for Claude to analyze
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $workItemJson = $WorkItemData | ConvertTo-Json -Depth 10
+        $workItemJson | Out-File -FilePath $tempFile -Encoding UTF8
+        
+        Write-DebugOutput "Work item data saved to temp file: $tempFile"
+        
+        # Prepare Claude prompt for work item analysis
+        $claudePrompt = @"
+Analyze this TFS/Azure DevOps work item and provide:
+
+1. **Priority Assessment** (HIGH/MEDIUM/LOW) with reasoning
+2. **Content Summary** - Brief overview of the issue/task
+3. **Key Points** - Important requirements, acceptance criteria, or technical details
+4. **Recent Decisions** - Any decisions made based on comments/history
+5. **Action Items** - Recommended next steps
+6. **Impact Assessment** - Business and technical impact
+
+Work Item Data:
+{0}
+
+Provide the analysis in a structured JSON format with the following keys:
+- priorityLevel (HIGH/MEDIUM/LOW)
+- priorityReasons (array of reasons)
+- summary (string)
+- keyPoints (array of strings)
+- decisions (array of strings)
+- actionItems (array of strings)
+- impactAssessment (string)
+"@
+        
+        $fullPrompt = $claudePrompt -f $workItemJson
+        
+        # Save prompt to temp file
+        $promptFile = [System.IO.Path]::GetTempFileName()
+        $fullPrompt | Out-File -FilePath $promptFile -Encoding UTF8
+        
+        Write-DebugOutput "Claude prompt saved to: $promptFile"
+        
+        # Execute Claude Code with the work item analysis prompt using stdin
+        $claudeCommand = "claude"
+        $claudeArgs = @(
+            "--print"
+            "--output-format", "json"
+        )
+        
+        Write-DebugOutput "Executing Claude command: $claudeCommand $($claudeArgs -join ' ') < $promptFile"
+        
+        # Set timeout for Claude command (30 seconds)
+        $timeoutSeconds = 30
+        $job = Start-Job -ScriptBlock {
+            param($cmd, $args, $inputFile)
+            Get-Content $inputFile | & $cmd @args 2>&1
+        } -ArgumentList $claudeCommand, $claudeArgs, $promptFile
+        
+        $claudeResult = $null
+        if (Wait-Job $job -Timeout $timeoutSeconds) {
+            $claudeResult = Receive-Job $job
+            $exitCode = $job.State
+        } else {
+            Write-DebugOutput "Claude command timed out after $timeoutSeconds seconds"
+            Stop-Job $job
+            Remove-Job $job
+            return @{ Error = "Claude command timed out after $timeoutSeconds seconds" }
+        }
+        
+        Remove-Job $job
+        
+        if ($exitCode -eq 'Completed' -and $claudeResult) {
+            Write-DebugOutput "Claude analysis completed successfully"
+            
+            # Parse Claude response with error handling
+            try {
+                # Handle potential multi-line JSON response
+                $jsonResponse = $claudeResult -join "`n"
+                
+                # Try to extract JSON if embedded in other text
+                if ($jsonResponse -match '\{[\s\S]*\}') {
+                    $jsonResponse = $matches[0]
+                }
+                
+                $claudeAnalysis = $jsonResponse | ConvertFrom-Json
+                Write-DebugOutput "Claude analysis parsed successfully"
+                
+                # Validate required fields and provide defaults if missing
+                if (-not $claudeAnalysis.priorityLevel) {
+                    $claudeAnalysis | Add-Member -NotePropertyName 'priorityLevel' -NotePropertyValue 'MEDIUM'
+                }
+                if (-not $claudeAnalysis.priorityReasons) {
+                    $claudeAnalysis | Add-Member -NotePropertyName 'priorityReasons' -NotePropertyValue @('AI analysis')
+                }
+                if (-not $claudeAnalysis.summary) {
+                    $claudeAnalysis | Add-Member -NotePropertyName 'summary' -NotePropertyValue 'AI-generated summary not available'
+                }
+                
+                # Clean up temp files
+                Remove-Item -Path $tempFile -ErrorAction SilentlyContinue
+                Remove-Item -Path $promptFile -ErrorAction SilentlyContinue
+                
+                return $claudeAnalysis
+                
+            } catch {
+                Write-DebugOutput "Error parsing Claude response: $($_.Exception.Message)"
+                Write-DebugOutput "Claude raw response: $claudeResult"
+                
+                # Attempt to extract key information using regex if JSON parsing fails
+                try {
+                    $fallbackAnalysis = @{}
+                    
+                    # Extract priority level
+                    if ($claudeResult -match '(?i)(HIGH|MEDIUM|LOW)') {
+                        $fallbackAnalysis.priorityLevel = $matches[1].ToUpper()
+                    } else {
+                        $fallbackAnalysis.priorityLevel = 'MEDIUM'
+                    }
+                    
+                    # Extract summary (look for summary-like content)
+                    if ($claudeResult -match '(?i)summary[:\s]*([^\n\r]{20,200})') {
+                        $fallbackAnalysis.summary = $matches[1].Trim()
+                    }
+                    
+                    $fallbackAnalysis.priorityReasons = @('AI analysis (fallback parsing)')
+                    
+                    Write-DebugOutput "Used fallback parsing for Claude response"
+                    return $fallbackAnalysis
+                } catch {
+                    Write-DebugOutput "Fallback parsing also failed: $($_.Exception.Message)"
+                    return @{ Error = "Claude response parsing failed. Claude output: $($claudeResult -join ' ')" }
+                }
+            }
+        } else {
+            Write-DebugOutput "Claude command failed or returned no result"
+            Write-DebugOutput "Claude output: $claudeResult"
+            $errorMsg = if ($claudeResult) { "Claude command failed. Output: $($claudeResult -join ' ')" } else { "Claude command returned no result" }
+            return @{ Error = $errorMsg }
+        }
+        
+        # Clean up temp files
+        Remove-Item -Path $tempFile -ErrorAction SilentlyContinue
+        Remove-Item -Path $promptFile -ErrorAction SilentlyContinue
+        
+        return @{ Error = "Claude analysis completed but no valid result was produced" }
+        
+    } catch {
+        Write-DebugOutput "Error in Claude analysis: $($_.Exception.Message)"
+        return @{ Error = "Claude analysis exception: $($_.Exception.Message)" }
+    }
+}
+
+function Get-EnhancedWorkItemAnalysis {
+    param(
+        [hashtable]$Config,
+        [object]$WorkItemData,
+        [array]$Comments,
+        [string]$Source,
+        [bool]$UseClaude = $false
+    )
+    
+    $analysis = @{
+        Priority = $null
+        Action = ""
+        ContentAnalysis = $null
+        Enhanced = $false
+    }
+    
+    # Ensure Comments is an array (handle null case)
+    if (-not $Comments) {
+        $Comments = @()
+    }
+    
+    # Always get traditional analysis as fallback
+    try {
+        $traditionalPriority = Get-PriorityLevel -Fields $WorkItemData.fields -Source $Source
+        $traditionalAction = Get-ActionRecommendation -Fields $WorkItemData.fields -Priority $traditionalPriority -Source $Source
+        $traditionalContent = Analyze-TicketContent -Fields $WorkItemData.fields -Comments $Comments
+    } catch {
+        Write-DebugOutput "Error in traditional analysis: $($_.Exception.Message)"
+        # Provide minimal fallback analysis
+        $traditionalPriority = @{ Level = 'MEDIUM'; Score = 5; Reasons = @('Analysis error') }
+        $traditionalAction = "Review this work item"
+        $traditionalContent = @{ Summary = 'Analysis unavailable'; KeyPoints = @(); Decisions = @(); NextSteps = @() }
+    }
+    
+    $analysis.Priority = $traditionalPriority
+    $analysis.Action = $traditionalAction
+    $analysis.ContentAnalysis = $traditionalContent
+    
+    # Try Claude analysis if requested and available
+    if ($UseClaude -and $Config.CLAUDE_AVAILABLE -eq 'true') {
+        Write-DebugOutput "Attempting Claude analysis..."
+        
+        # Retry mechanism for Claude analysis
+        $maxRetries = 2
+        $claudeAnalysis = $null
+        $claudeError = $null
+        
+        for ($retry = 0; $retry -lt $maxRetries -and -not $claudeAnalysis; $retry++) {
+            if ($retry -gt 0) {
+                Write-DebugOutput "Retrying Claude analysis (attempt $($retry + 1)/$maxRetries)..."
+                Start-Sleep -Seconds 2
+            }
+            
+            try {
+                $claudeResult = Invoke-ClaudeAnalysis -Config $Config -WorkItemId $WorkItemData.id -ProjectName $Config.PROJECT_NAME -WorkItemData $WorkItemData
+                if ($claudeResult -and $claudeResult.Error) {
+                    $claudeError = $claudeResult.Error
+                    Write-DebugOutput "Claude analysis attempt $($retry + 1) returned error: $claudeError"
+                } else {
+                    $claudeAnalysis = $claudeResult
+                }
+            } catch {
+                $claudeError = "Exception: $($_.Exception.Message)"
+                Write-DebugOutput "Claude analysis attempt $($retry + 1) failed: $claudeError"
+                if ($retry -eq $maxRetries - 1) {
+                    Write-DebugOutput "All Claude analysis attempts failed"
+                }
+            }
+        }
+        
+        if ($claudeAnalysis -and -not $claudeAnalysis.Error) {
+            Write-DebugOutput "Claude analysis successful, enhancing traditional analysis..."
+            
+            try {
+                # Enhance priority analysis with Claude insights
+                if ($claudeAnalysis.priorityLevel) {
+                    $analysis.Priority.Level = $claudeAnalysis.priorityLevel
+                    if ($claudeAnalysis.priorityReasons -and $claudeAnalysis.priorityReasons.Count -gt 0) {
+                        $analysis.Priority.Reasons = $claudeAnalysis.priorityReasons
+                    }
+                }
+                
+                # Enhance content analysis with Claude insights
+                if ($claudeAnalysis.summary) {
+                    $analysis.ContentAnalysis.Summary = $claudeAnalysis.summary
+                }
+                if ($claudeAnalysis.keyPoints -and $claudeAnalysis.keyPoints.Count -gt 0) {
+                    $analysis.ContentAnalysis.KeyPoints = $claudeAnalysis.keyPoints
+                }
+                if ($claudeAnalysis.decisions -and $claudeAnalysis.decisions.Count -gt 0) {
+                    $analysis.ContentAnalysis.Decisions = $claudeAnalysis.decisions
+                }
+                if ($claudeAnalysis.actionItems -and $claudeAnalysis.actionItems.Count -gt 0) {
+                    $analysis.ContentAnalysis.NextSteps = $claudeAnalysis.actionItems
+                }
+                
+                # Enhanced action recommendation
+                if ($claudeAnalysis.actionItems -and $claudeAnalysis.actionItems.Count -gt 0) {
+                    $analysis.Action = $claudeAnalysis.actionItems[0]  # Use first action item as primary recommendation
+                }
+                
+                # Add impact assessment if available
+                if ($claudeAnalysis.impactAssessment) {
+                    $analysis.ContentAnalysis.ImpactAssessment = $claudeAnalysis.impactAssessment
+                }
+                
+                $analysis.Enhanced = $true
+                Write-DebugOutput "Analysis enhanced with Claude AI insights"
+                
+            } catch {
+                Write-DebugOutput "Error applying Claude analysis enhancements: $($_.Exception.Message)"
+                Write-DebugOutput "Falling back to traditional analysis"
+            }
+        } else {
+            Write-DebugOutput "Claude analysis failed after all attempts, using traditional analysis"
+            Write-ColorOutput "Claude analysis failed - using traditional analysis as backup" "Warning"
+            # Store the Claude error for later reporting
+            if ($claudeError) {
+                $analysis.ClaudeError = $claudeError
+            }
+        }
+    }
+    
+    return $analysis
 }
 
 function Get-Headers {
@@ -490,7 +1200,43 @@ function Get-Headers {
     
     if ($Config.USE_WINDOWS_AUTH -eq 'True') {
         return @{ 'Content-Type' = 'application/json' }
+    } elseif ($Config.USE_AZURE_CLI -eq 'True') {
+        try {
+            Write-DebugOutput "Getting Azure CLI access token..."
+            $tokenResult = az account get-access-token --resource https://dev.azure.com --query accessToken --output tsv 2>$null
+            
+            if ($tokenResult -and $tokenResult.Trim() -ne "") {
+                Write-DebugOutput "Azure CLI access token obtained successfully"
+                return @{
+                    'Content-Type' = 'application/json'
+                    'Authorization' = "Bearer $($tokenResult.Trim())"
+                }
+            } else {
+                Write-DebugOutput "Failed to get Azure CLI access token, falling back to PAT"
+                throw "Azure CLI token failed"
+            }
+        } catch {
+            Write-DebugOutput "Azure CLI authentication failed: $($_.Exception.Message)"
+            
+            # Fallback to PAT if available
+            if ($Config.PAT -and $Config.PAT.Trim() -ne "") {
+                Write-DebugOutput "Falling back to PAT authentication"
+                $AuthString = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($Config.PAT)"))
+                return @{
+                    'Content-Type' = 'application/json'
+                    'Authorization' = "Basic $AuthString"
+                }
+            } else {
+                Write-ColorOutput "Azure CLI authentication failed and no PAT configured. Please run 'az login' or configure a PAT." "Error"
+                throw "No valid authentication method available"
+            }
+        }
     } else {
+        if (-not $Config.PAT -or $Config.PAT.Trim() -eq "") {
+            Write-ColorOutput "No PAT configured. Please run setup." "Error"
+            throw "No PAT configured"
+        }
+        
         $AuthString = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($Config.PAT)"))
         return @{
             'Content-Type' = 'application/json'
@@ -1026,9 +1772,57 @@ function Send-Office365Email {
 }
 
 function Analyze-Tickets {
-    param([hashtable]$Config, [int]$Days)
+    param(
+        [hashtable]$Config, 
+        [int]$Days,
+        [switch]$Html,
+        [switch]$Browser,
+        [switch]$Text,
+        [switch]$Email,
+        [switch]$Claude,
+        [switch]$UseClaude,
+        [switch]$Details,
+        [switch]$VerboseOutput,
+        [switch]$SaveHtml,
+        [switch]$ShowInBrowser,
+        [switch]$SaveText,
+        [switch]$SendEmail,
+        [switch]$NoAI,
+        [switch]$NoClaude
+    )
     
-    $Headers = Get-Headers -Config $Config
+    # Handle backward compatibility - merge old and new parameter names
+    $SaveHtml = $Html -or $SaveHtml
+    $ShowInBrowser = $Browser -or $ShowInBrowser
+    $SaveText = $Text -or $SaveText
+    $SendEmail = $Email -or $SendEmail
+    $Details = $Details -or $VerboseOutput
+    
+    # Determine Claude usage (simplified)
+    $shouldUseClaude = $false
+    if ($Claude -or $UseClaude) {
+        $shouldUseClaude = $true
+        Write-DebugOutput "Claude usage requested via parameter"
+    } elseif ($NoAI -or $NoClaude) {
+        $shouldUseClaude = $false
+        Write-DebugOutput "Claude usage disabled via parameter"
+    } elseif ($Config.USE_CLAUDE_BY_DEFAULT -eq 'true') {
+        $shouldUseClaude = $true
+        Write-DebugOutput "Claude usage enabled by default configuration"
+    }
+    
+    if ($shouldUseClaude -and $Config.CLAUDE_AVAILABLE -ne 'true') {
+        Write-ColorOutput "Claude requested but not available. Run setup to configure Claude integration." "Warning"
+        $shouldUseClaude = $false
+    }
+    
+    try {
+        $Headers = Get-Headers -Config $Config
+    } catch {
+        Write-ColorOutput "Authentication setup failed: $($_.Exception.Message)" "Error"
+        return
+    }
+    
     $ProjectName = $Config.PROJECT_NAME
     $TfsUrl = $Config.TFS_URL
     $UserDisplayName = $Config.USER_DISPLAY_NAME
@@ -1036,6 +1830,15 @@ function Analyze-Tickets {
     Write-ColorOutput "Analyzing TFS tickets for the last $Days day(s)..." "Info"
     Write-Host "Project: $ProjectName"
     Write-Host "User: $UserDisplayName"
+    
+    if ($shouldUseClaude) {
+        Write-ColorOutput "AI Enhancement: Claude AI analysis enabled" "Info"
+    } else {
+        Write-ColorOutput "Analysis Mode: Traditional analysis" "Info"
+    }
+    
+    $authMethod = if ($Config.USE_AZURE_CLI -eq 'true') { "Azure CLI" } elseif ($Config.USE_WINDOWS_AUTH -eq 'true') { "Windows Auth" } else { "PAT" }
+    Write-Host "Authentication: $authMethod"
     
     # Determine output method from parameters or config
     if ($SaveHtml -or $ShowInBrowser -or $SaveText -or $SendEmail) {
@@ -1059,8 +1862,11 @@ function Analyze-Tickets {
     } | ConvertTo-Json
     
     # Query 2: @Mentioned tickets - Use basic fields to avoid compatibility issues
+    $mentionQueryString = @"
+SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.ChangedDate], [System.Description], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = '$ProjectName' AND [System.History] CONTAINS WORDS '@$UserDisplayName' AND [System.ChangedDate] >= @Today - $Days ORDER BY [System.ChangedDate] DESC
+"@
     $MentionQuery = @{
-        query = "SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.ChangedDate], [System.Description], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = '$ProjectName' AND [System.History] CONTAINS WORDS '@$UserDisplayName' AND [System.ChangedDate] >= @Today - $Days ORDER BY [System.ChangedDate] DESC"
+        query = $mentionQueryString
     } | ConvertTo-Json
     
     $AllTickets = @()
@@ -1072,7 +1878,7 @@ function Analyze-Tickets {
         
         if ($AssignedResponse.workItems -and $AssignedResponse.workItems.Count -gt 0) {
             $AssignedIds = ($AssignedResponse.workItems | ForEach-Object { $_.id }) -join ','
-            $AssignedDetails = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$AssignedIds&api-version=6.0" -Headers $Headers
+            $AssignedDetails = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$AssignedIds`&api-version=6.0" -Headers $Headers
             
             foreach ($Item in $AssignedDetails.value) {
                 $AllTickets += @{
@@ -1088,12 +1894,12 @@ function Analyze-Tickets {
         
         if ($MentionResponse.workItems -and $MentionResponse.workItems.Count -gt 0) {
             $MentionIds = ($MentionResponse.workItems | ForEach-Object { $_.id }) -join ','
-            $MentionDetails = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$MentionIds&api-version=6.0" -Headers $Headers
+            $MentionDetails = Invoke-RestMethod -Uri "$TfsUrl/$ProjectName/_apis/wit/workItems?ids=$MentionIds`&api-version=6.0" -Headers $Headers
             
             foreach ($Item in $MentionDetails.value) {
                 $ExistingItem = $AllTickets | Where-Object { $_.Item.id -eq $Item.id }
                 if ($ExistingItem) {
-                    $ExistingItem.Source = "Assigned & @Mentioned"
+                    $ExistingItem.Source = "Assigned `& @Mentioned"
                 } else {
                     $AllTickets += @{
                         Item = $Item
@@ -1109,7 +1915,8 @@ function Analyze-Tickets {
         }
         
         # Analyze priorities, actions, and content
-        Write-ColorOutput "Analyzing ticket content and comments..." "Info"
+        $analysisType = if ($shouldUseClaude) { "AI-enhanced" } else { "traditional" }
+        Write-ColorOutput "Performing $analysisType ticket analysis..." "Info"
         
         # Create debug file for raw data analysis
         $DebugPath = "$env:USERPROFILE\Documents\TFS-Debug-Data.txt"
@@ -1169,13 +1976,16 @@ function Analyze-Tickets {
                 $DebugLines += "NO COMMENTS FOUND"
             }
             
-            # Run analysis but show what it produces
-            $Priority = Get-PriorityLevel -Fields $TicketData.Item.fields -Source $TicketData.Source
-            $Action = Get-ActionRecommendation -Fields $TicketData.Item.fields -Priority $Priority -Source $TicketData.Source
-            $ContentAnalysis = Analyze-TicketContent -Fields $TicketData.Item.fields -Comments $Comments
+            # Run enhanced analysis (Claude or traditional)
+            $enhancedAnalysis = Get-EnhancedWorkItemAnalysis -Config $Config -WorkItemData $TicketData.Item -Comments $Comments -Source $TicketData.Source -UseClaude $shouldUseClaude
+            
+            $Priority = $enhancedAnalysis.Priority
+            $Action = $enhancedAnalysis.Action
+            $ContentAnalysis = $enhancedAnalysis.ContentAnalysis
             
             $DebugLines += ""
             $DebugLines += "ANALYSIS RESULTS:"
+            $DebugLines += "  Analysis Type: $(if ($enhancedAnalysis.Enhanced) { 'AI-Enhanced (Claude)' } else { 'Traditional' })"
             $DebugLines += "  Priority: $($Priority.Level) (Score: $($Priority.Score))"
             $DebugLines += "  Reasons: $($Priority.Reasons -join ', ')"
             $DebugLines += "  Action: $Action"
@@ -1183,6 +1993,9 @@ function Analyze-Tickets {
             $DebugLines += "  Key Points: $($ContentAnalysis.KeyPoints -join '; ')"
             $DebugLines += "  Decisions: $($ContentAnalysis.Decisions -join '; ')"
             $DebugLines += "  Next Steps: $($ContentAnalysis.NextSteps -join '; ')"
+            if ($ContentAnalysis.ImpactAssessment) {
+                $DebugLines += "  Impact: $($ContentAnalysis.ImpactAssessment)"
+            }
             
             $DebugLines += ""
             $DebugLines += "=".PadRight(80, '=')
@@ -1192,6 +2005,7 @@ function Analyze-Tickets {
             $TicketData.Action = $Action
             $TicketData.ContentAnalysis = $ContentAnalysis
             $TicketData.Comments = $Comments
+            $TicketData.Enhanced = $enhancedAnalysis.Enhanced
         }
         
         # Save debug file
@@ -1214,8 +2028,9 @@ function Analyze-Tickets {
         Write-Host ""
         
         # Generate outputs based on configuration
+        Write-Host "DEBUG: Output parameters: SaveHtml=$SaveHtml, ShowInBrowser=$ShowInBrowser, Browser=$Browser" -ForegroundColor Yellow
         if ($SaveHtml -or $ShowInBrowser) {
-            Save-HtmlSummary -Config $Config -AllTickets $AllTickets -Days $Days -TfsUrl $TfsUrl -ProjectName $ProjectName
+            Save-HtmlSummary -Config $Config -AllTickets $AllTickets -Days $Days -TfsUrl $TfsUrl -ProjectName $ProjectName -ShowInBrowser $ShowInBrowser
         }
         
         if ($SaveText) {
@@ -1234,6 +2049,30 @@ function Analyze-Tickets {
         Write-Host ""
         Write-ColorOutput "Analysis complete!" "Success"
         
+        # Show analysis summary
+        $enhancedCount = ($AllTickets | Where-Object { $_.Enhanced -eq $true }).Count
+        if ($shouldUseClaude -and $enhancedCount -gt 0) {
+            Write-ColorOutput "AI Enhancement: $enhancedCount/$($AllTickets.Count) tickets analyzed with Claude AI" "Success"
+        } elseif ($shouldUseClaude) {
+            Write-ColorOutput "AI Enhancement: Claude analysis was attempted but fell back to traditional analysis" "Warning"
+            
+            # Show specific Claude error reasons
+            $claudeErrors = @()
+            $AllTickets | Where-Object { $_.ClaudeError } | ForEach-Object {
+                if ($claudeErrors -notcontains $_.ClaudeError) {
+                    $claudeErrors += $_.ClaudeError
+                }
+            }
+            
+            if ($claudeErrors.Count -gt 0) {
+                Write-Host ""
+                Write-ColorOutput "Claude Analysis Failure Reasons:" "Warning"
+                $claudeErrors | ForEach-Object {
+                    Write-Host "  • $_" -ForegroundColor Yellow
+                }
+            }
+        }
+        
     } catch {
         Write-ColorOutput "Error analyzing tickets: $($_.Exception.Message)" "Error"
         Write-Host "Full error: $($_.Exception)"
@@ -1241,30 +2080,47 @@ function Analyze-Tickets {
 }
 
 function Show-Help {
-    Write-Host "TFS Ticket Analyzer with Multiple Output Options - Deltek Edition" -ForegroundColor Cyan
-    Write-Host "No SMTP server setup required - choose your preferred output method!"
+    Write-Host "TFS Ticket Analyzer with Claude AI Integration - Enhanced Edition" -ForegroundColor Cyan
+    Write-Host "AI-powered ticket analysis with multiple output options and authentication methods!"
     Write-Host ""
     Write-Host "SETUP:" -ForegroundColor Yellow
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 setup         - Setup TFS connection" 
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 setup-output  - Choose output method"
+    Write-Host "  .\tfs-analyzer.ps1 setup         - Setup TFS connection and authentication" 
+    Write-Host "  .\tfs-analyzer.ps1 setup-output  - Choose output method"
+    Write-Host "  .\tfs-analyzer.ps1 setup-claude  - Setup Claude AI integration"
     Write-Host ""
     Write-Host "USAGE:" -ForegroundColor Yellow
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 [days]         - Use configured output method"
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 [days] -SaveHtml      - Save as HTML file"
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 [days] -ShowInBrowser - Open in browser"
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 [days] -SaveText      - Save as text file"
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 [days] -SendEmail     - Send via email"
+    Write-Host "  .\tfs-analyzer.ps1 [days]                    - Use configured settings"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -Claude             - Force Claude AI analysis"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -NoAI               - Use traditional analysis only"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -Html               - Save as HTML file"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -Browser            - Open in browser"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -Text               - Save as text file"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -Email              - Send via email"
+    Write-Host "  .\tfs-analyzer.ps1 [days] -Details            - Enable detailed debug output"
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1               - Use configured method"
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 3 -SaveHtml   - Save last 3 days as HTML"
-    Write-Host "  .\tfs-ticket-analyzer-multi-output.ps1 1 -ShowInBrowser - Open todays summary"
+    Write-Host "  .\tfs-analyzer.ps1                           - Use configured method"
+    Write-Host "  .\tfs-analyzer.ps1 3 -Claude -Html            - AI analysis for 3 days, save HTML"
+    Write-Host "  .\tfs-analyzer.ps1 1 -Browser                - Open today's summary"
+    Write-Host "  .\tfs-analyzer.ps1 7 -NoAI -Details          - Traditional analysis with detailed output"
+    Write-Host ""
+    Write-Host "AUTHENTICATION METHODS:" -ForegroundColor Yellow
+    Write-Host "  Azure CLI (Recommended) - Uses current Azure login (az login)"
+    Write-Host "  Personal Access Token   - Uses stored PAT for authentication"
+    Write-Host "  Windows Authentication  - Uses current Windows credentials (on-premise only)"
+    Write-Host ""
+    Write-Host "AI ENHANCEMENT:" -ForegroundColor Yellow
+    Write-Host "  Claude AI provides enhanced analysis including:"
+    Write-Host "  • Intelligent priority assessment with detailed reasoning"
+    Write-Host "  • Smart content summarization and key point extraction"
+    Write-Host "  • Action recommendations and impact analysis"
+    Write-Host "  • Decision tracking from comments and history"
     Write-Host ""
     Write-Host "OUTPUT OPTIONS:" -ForegroundColor Yellow
-    Write-Host "  HTML File - Professional web page saved to Documents"
-    Write-Host "  Email - Via Office 365 (requires your email password)"
-    Write-Host "  Text File - Simple text format saved to Documents"
-    Write-Host "  Browser - Automatically opens HTML in your browser"
+    Write-Host "  HTML File - Professional web page with AI insights"
+    Write-Host "  Email - Via Office 365 with enhanced analysis"
+    Write-Host "  Text File - Structured text format with AI summaries"
+    Write-Host "  Browser - Automatically opens HTML with full analysis"
     Write-Host "  Console - Always shows summary in terminal"
 }
 
@@ -1276,24 +2132,61 @@ switch ($Action.ToLower()) {
     'setup-output' {
         Setup-OutputConfiguration
     }
+    'setup-claude' {
+        Setup-ClaudeConfiguration
+    }
+    'test-claude' {
+        Test-ClaudeConfiguration
+    }
     'help' {
         Show-Help
     }
+    'test-auth' {
+        $Config = Load-Configuration
+        try {
+            $Headers = Get-Headers -Config $Config
+            Write-ColorOutput "Authentication test successful!" "Success"
+            
+            # Test Azure CLI if configured
+            if ($Config.USE_AZURE_CLI -eq 'true') {
+                $azAuth = Test-AzureCliAuthentication
+                if ($azAuth) {
+                    Write-ColorOutput "Azure CLI authentication verified" "Success"
+                } else {
+                    Write-ColorOutput "Azure CLI authentication failed" "Warning"
+                }
+            }
+            
+            # Test Claude if available
+            if ($Config.CLAUDE_AVAILABLE -eq 'true') {
+                $claudeAvailable = Test-ClaudeCodeAvailability
+                if ($claudeAvailable) {
+                    Write-ColorOutput "Claude Code CLI is available" "Success"
+                } else {
+                    Write-ColorOutput "Claude Code CLI not found" "Warning"
+                }
+            }
+            
+        } catch {
+            Write-ColorOutput "Authentication test failed: $($_.Exception.Message)" "Error"
+        }
+    }
     { $_ -match '^\d+$' } {
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -Days ([int]$Action)
+        Analyze-Tickets -Config $Config -Days ([int]$Action) -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
     }
     'analyze' {
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -Days $Days
+        Analyze-Tickets -Config $Config -Days $Days -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
     }
     default {
         if ($Action -match '^\d+$') {
             $Config = Load-Configuration
-            Analyze-Tickets -Config $Config -Days ([int]$Action)
+            Analyze-Tickets -Config $Config -Days ([int]$Action) -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
         } else {
             Write-ColorOutput "Invalid option: $Action" "Error"
-            Write-Host "Use help for usage information."
+            Write-Host "Use 'help' for usage information."
+            Write-Host "Available commands: setup, setup-output, setup-claude, test-auth, help, analyze, [number]"
         }
     }
 }
