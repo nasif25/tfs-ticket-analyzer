@@ -1,6 +1,53 @@
-# TFS Ticket Analyzer
+# TFS Ticket Analyzer with Claude AI Integration
 
-A comprehensive **cross-platform** tool that analyzes your TFS tickets (both assigned and @mentioned) and provides intelligent priority rankings and action recommendations with multiple output formats.
+A comprehensive **cross-platform** tool that analyzes your TFS/Azure DevOps tickets with **AI-powered insights**. Uses Claude AI for enhanced analysis including intelligent priority assessment, smart summarization, and actionable recommendations. Supports both traditional analysis and AI-enhanced modes with multiple authentication methods and output formats.
+
+## 🎯 **Quick Command Reference**
+
+**Windows PowerShell:**
+```powershell
+# Basic usage with simplified parameters
+.\tfs-analyzer.ps1 1 -Browser        # Today's tickets in browser
+.\tfs-analyzer.ps1 3 -Claude -Html   # 3 days AI analysis to HTML
+.\tfs-analyzer.ps1 7 -Text          # Week summary to text file  
+.\tfs-analyzer.ps1 2 -Email         # 2 days summary via email
+.\tfs-analyzer.ps1 1 -NoAI -Details # Traditional analysis with debug
+```
+
+**Linux/Mac Bash:**
+```bash
+# Basic usage with simplified parameters  
+./tfs-analyzer.sh 1 -b               # Today's tickets in browser
+./tfs-analyzer.sh 3 -c -h            # 3 days AI analysis to HTML
+./tfs-analyzer.sh 7 -t               # Week summary to text file
+./tfs-analyzer.sh 2 -e               # 2 days summary via email
+./tfs-analyzer.sh 1 --no-ai -d       # Traditional analysis with debug
+```
+
+**Python (All Platforms):**
+```bash
+# Basic usage with simplified parameters
+python tfs-analyzer.py 1 -b          # Today's tickets in browser
+python tfs-analyzer.py 3 -c -h       # 3 days AI analysis to HTML  
+python tfs-analyzer.py 7 -t          # Week summary to text file
+python tfs-analyzer.py 2 -e          # 2 days summary via email
+python tfs-analyzer.py 1 --no-ai -d  # Traditional analysis with debug
+```
+
+**Simplified Parameters:**
+
+| Function | PowerShell | Bash/Python | Traditional |
+|----------|------------|-------------|-------------|
+| Force AI analysis | `-Claude` | `-c, --claude` | `-UseClaude` |
+| Traditional only | `-NoAI` | `--no-ai` | `-NoClaude` |
+| Open in browser | `-Browser` | `-b, --browser` | `-ShowInBrowser` |
+| Save HTML file | `-Html` | `-h, --html` | `-SaveHtml` |
+| Save text file | `-Text` | `-t, --text` | `-SaveText` |
+| Send via email | `-Email` | `-e, --email` | `-SendEmail` |
+| Detailed output | `-Details` | `-d, --details` | `-VerboseOutput` |
+| Days to analyze | `[number]` | `[number]` | Same |
+
+> **📝 Note for Existing Users:** The old parameter names still work for backward compatibility, but the new simplified names are recommended for easier use.
 
 ## 🖥️ Platform Support
 
@@ -27,16 +74,31 @@ A comprehensive **cross-platform** tool that analyzes your TFS tickets (both ass
 
 ## 🚀 Quick Start
 
-### 1. First-time Setup
+### 1. Prerequisites
+
+**For AI-Enhanced Analysis (Optional but Recommended):**
+1. **Install Claude Code**: Download from [claude.ai/code](https://claude.ai/code)
+2. **Azure CLI** (recommended): Install from [docs.microsoft.com/en-us/cli/azure/install-azure-cli](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+3. **Authenticate with Azure CLI**: Run `az login --allow-no-subscriptions`
+
+### 2. First-time Setup
 
 **Windows:**
 ```powershell
+# Basic setup with authentication configuration
 .\tfs-analyzer.ps1 setup
+
+# Setup Claude AI integration (optional)
+.\tfs-analyzer.ps1 setup-claude
 ```
 
 **Linux/Mac (Bash):**
 ```bash
+# Basic setup with authentication configuration
 ./tfs-analyzer.sh setup
+
+# Setup Claude AI integration (optional)
+./tfs-analyzer.sh setup-claude
 ```
 
 **Python (Any Platform):**
@@ -44,51 +106,63 @@ A comprehensive **cross-platform** tool that analyzes your TFS tickets (both ass
 # Install dependencies first
 pip install -r requirements.txt
 
-# Run setup
+# Basic setup
 python tfs-analyzer.py --setup
+
+# Setup Claude AI integration (optional)  
+python tfs-analyzer.py --setup-claude
 ```
 
 You'll be prompted for:
-- **TFS URL**: `https://tfs.YOUR_ORGANIZATION.com/tfs/YOUR_ORGANIZATION`
+- **TFS/Azure DevOps URL**: `https://tfs.YOUR_ORGANIZATION.com/tfs/YOUR_ORGANIZATION`
 - **Project Name**: `YOUR_PROJECT`
-- **Personal Access Token**: Your TFS PAT
+- **Authentication Method**: Azure CLI (recommended), PAT, or Windows Auth
+- **Personal Access Token**: Your TFS PAT (if not using Azure CLI)
 - **Display Name**: For @mention detection
+- **Claude AI Setup**: Optional AI enhancement configuration
 
-### 2. Daily Analysis
+### 3. Daily Analysis
 
 **Windows:**
 ```powershell
-# Analyze last 24 hours - show in browser
-.\tfs-analyzer.ps1 1 -ShowInBrowser
+# AI-enhanced analysis (last 24 hours) - show in browser
+.\tfs-analyzer.ps1 1 -Claude -Browser
 
-# Analyze last 3 days - save HTML file
-.\tfs-analyzer.ps1 3 -SaveHtml
+# Traditional analysis (last 3 days) - save HTML file
+.\tfs-analyzer.ps1 3 -NoAI -Html
 
-# Analyze last week - save text summary
-.\tfs-analyzer.ps1 7 -SaveText
+# Use configured default (AI or traditional) - save text summary
+.\tfs-analyzer.ps1 7 -Text
+
+# Verbose mode with detailed output
+.\tfs-analyzer.ps1 1 -Details -Claude
 ```
 
 **Linux/Mac (Bash):**
 ```bash
-# Analyze last 24 hours - show in browser
+# AI-enhanced analysis with simplified parameters
+./tfs-analyzer.sh 1 -c -b            # AI analysis, show in browser
+./tfs-analyzer.sh 3 --no-ai -h       # Traditional analysis, HTML file
+./tfs-analyzer.sh 7 -t               # Default mode, text summary
+./tfs-analyzer.sh 1 -d -c            # AI analysis with detailed output
+
+# Traditional parameters (still supported)
 ./tfs-analyzer.sh 1 --output browser
-
-# Analyze last 3 days - save HTML file
 ./tfs-analyzer.sh 3 --output html
-
-# Analyze last week - save text summary
 ./tfs-analyzer.sh 7 --output text
 ```
 
 **Python (Any Platform):**
-```bash
-# Analyze last 24 hours - show in browser
+```bash  
+# AI-enhanced analysis with simplified parameters
+python tfs-analyzer.py 1 -c -b       # AI analysis, show in browser
+python tfs-analyzer.py 3 --no-ai -h  # Traditional analysis, HTML file
+python tfs-analyzer.py 7 -t          # Default mode, text summary
+python tfs-analyzer.py 1 -d -c       # AI analysis with detailed output
+
+# Traditional parameters (still supported)
 python tfs-analyzer.py 1 --output browser
-
-# Analyze last 3 days - save HTML file
-python tfs-analyzer.py 3 --output html
-
-# Analyze last week - save text summary
+python tfs-analyzer.py 3 --output html  
 python tfs-analyzer.py 7 --output text
 ```
 
@@ -147,8 +221,22 @@ python tfs-analyzer.py 7 --output text
 
 ## ✨ Features
 
-- 🎯 **Intelligent Priority Scoring** - HIGH/MEDIUM/LOW classification
-- 🔍 **Content Analysis** - AI-powered ticket summaries and insights
+### 🤖 **AI-Powered Analysis (Enhanced!)**
+- 🧠 **Claude AI Integration** - Advanced ticket analysis using Claude via Azure DevOps MCP server
+- 🔍 **Smart Prioritization** - AI-driven priority assessment with detailed reasoning
+- 📝 **Intelligent Summarization** - Context-aware content summaries and key point extraction
+- 💡 **Action Recommendations** - AI-generated next steps and impact analysis
+- 🔄 **Enhanced Fallback Support** - Graceful degradation to traditional analysis with detailed error reporting
+- 🚨 **Detailed Error Messages** - Specific error reasons displayed in all output formats (console, HTML, text, email)
+
+### 🔐 **Enhanced Authentication**
+- ☁️ **Azure CLI Authentication** - Seamless integration with `az login --allow-no-subscriptions` (recommended)
+- 🔑 **Personal Access Token** - Secure PAT-based authentication with fallback support
+- 🪟 **Windows Authentication** - Native Windows/Kerberos authentication for on-premise TFS
+- 🔄 **Automatic Fallback** - Smart authentication fallback chain for reliability
+
+### 📊 **Traditional Analysis**
+- 🎯 **Intelligent Priority Scoring** - HIGH/MEDIUM/LOW classification with keyword analysis
 - 💬 **Comment Analysis** - Extracts decisions and action items from recent comments
 - 📋 **Acceptance Criteria** - Highlights important requirements and test scenarios
 - 🔗 **@Mention Detection** - Finds tickets where you're mentioned
@@ -186,11 +274,14 @@ python tfs-analyzer.py 7 --output text
 
 ## 🔧 Configuration
 
-Configuration is stored in platform-appropriate locations:
+Configuration is stored locally within the project directory for better security and portability:
 
 ### **File Locations**
-- **Windows**: `%USERPROFILE%\.tfs-analyzer-config`
-- **Linux/Mac**: `~/.config/.tfs-analyzer-config`
+- **All Platforms**: `PROJECT_ROOT/.config/.tfs-analyzer-config`
+- **Claude Configuration**: `PROJECT_ROOT/.config/.tfs-analyzer-claude-config`
+- **Claude Code MCP**: `PROJECT_ROOT/.config/claude-code-config.json`
+
+> **📁 Note**: Configuration files are stored in the project's `.config` directory and are automatically excluded from version control via `.gitignore` for security.
 
 ### **Configuration Format**
 
@@ -267,14 +358,17 @@ use_windows_auth = false
 # Initial setup
 .\tfs-analyzer.ps1 setup
 
-# Daily standup prep
-.\tfs-analyzer.ps1 1 -ShowInBrowser
+# Daily standup prep with AI
+.\tfs-analyzer.ps1 1 -Claude -Browser
 
 # Weekly review
-.\tfs-analyzer.ps1 7 -SaveHtml
+.\tfs-analyzer.ps1 7 -Html
 
 # Email daily summary
-.\tfs-analyzer.ps1 1 -SendEmail
+.\tfs-analyzer.ps1 1 -Email
+
+# Traditional analysis
+.\tfs-analyzer.ps1 3 -NoAI -Text
 
 # Setup daily automation
 .\tfs-scheduler-daily.ps1 -Time "08:00" -OutputMethod browser
@@ -386,7 +480,7 @@ python tfs-analyzer.py --setup     # Python
 .\tfs-analyzer.ps1 1 -Debug -ShowInBrowser
 
 # Verbose processing
-.\tfs-analyzer.ps1 1 -Verbose -SaveHtml
+.\tfs-analyzer.ps1 1 -Details -SaveHtml
 
 # Silent mode
 .\tfs-analyzer.ps1 1 -Quiet -SaveText
@@ -401,7 +495,67 @@ python tfs-analyzer.py --setup     # Python
 .\tfs-analyzer.ps1 3 -WorkItemTypes "Bug,Task" -ShowInBrowser
 ```
 
+## 🤖 Claude AI Integration
+
+### **Setup Requirements**
+1. **Claude Code CLI**: Download and install from [claude.ai/code](https://claude.ai/code)
+2. **Azure DevOps MCP Server**: Automatically configured during setup
+3. **Authentication**: Uses Azure CLI or falls back to PAT
+
+### **AI Enhancement Features**
+- **Intelligent Priority Assessment**: AI analyzes ticket content for smarter priority scoring
+- **Content Summarization**: Extracts key information and provides context-aware summaries
+- **Action Recommendations**: Suggests specific next steps based on ticket analysis
+- **Impact Assessment**: Evaluates business and technical impact
+- **Decision Tracking**: Identifies important decisions from comments and history
+
+### **Configuration Files**
+- **Main Config**: `PROJECT_ROOT/.config/.tfs-analyzer-config`
+- **Claude Config**: `PROJECT_ROOT/.config/.tfs-analyzer-claude-config`  
+- **Claude Code MCP**: `PROJECT_ROOT/.config/claude-code-config.json`
+
+### **Enhanced Error Reporting**
+When Claude AI analysis fails, all three platforms now provide **detailed error reporting**:
+- **Specific Error Messages**: Shows exactly why Claude failed (CLI not found, authentication issues, timeouts, etc.)
+- **Cross-Platform Consistency**: Same error messages across Windows, Linux/Mac, and Python versions
+- **Multiple Display Formats**: Errors shown in console, HTML, text, and email outputs
+- **Actionable Solutions**: Each error includes specific steps to resolve the issue
+
+**Common Error Messages:**
+- `Claude Code CLI not found. Run setup-claude first.`
+- `No valid authentication method available. Configure Azure CLI or PAT.`
+- `Command timed out after 120 seconds`
+- `Authentication verification failed.`
+
+### **Fallback Strategy**
+If Claude AI analysis fails:
+1. **Detailed Error Display**: Shows specific failure reason in all output formats
+2. **Automatic fallback** to traditional analysis with error explanation
+3. **Graceful error handling** and user notification
+4. **Full functionality maintained** without AI features
+5. **Error persistence** in summary reports for troubleshooting
+
 ## 📚 Additional Information
+
+### **Authentication Methods**
+
+**Azure CLI (Recommended)**
+```powershell
+# Login to Azure CLI (tenant-level access for Azure DevOps)
+az login --allow-no-subscriptions
+
+# Configure for specific organization
+az devops configure --defaults organization=https://tfs.deltek.com/tfs/Deltek project=TIP
+
+# Test authentication
+.\tfs-analyzer.ps1 test-auth
+```
+
+**Personal Access Token**
+1. Go to your TFS/Azure DevOps organization
+2. User Settings → Personal Access Tokens
+3. Create token with "Work Items (Read)" permission
+4. Use during setup or as fallback
 
 ### **Email Setup**
 When using email output, you'll be prompted for:
@@ -436,4 +590,284 @@ crontab -e
 ./tfs-scheduler.sh --remove
 ```
 
-This cross-platform TFS ticket analyzer provides comprehensive ticket analysis and flexible automation options for any development team using Team Foundation Server.
+## 🆕 Latest Updates
+
+### **Version 2.3.0 - Local Configuration & Enhanced Error Reporting**
+- ✅ **Local Configuration Storage**: All configuration files now stored in project's `.config` directory for better security and portability
+- ✅ **Enhanced Security**: Configuration files automatically excluded from version control
+- ✅ **Detailed Claude Error Messages**: All platforms now show specific reasons when Claude AI analysis fails
+- ✅ **Cross-Platform Error Consistency**: Same error messages across PowerShell, Bash, and Python versions
+- ✅ **Error Display in All Formats**: Error reasons shown in console, HTML, text, and email outputs
+- ✅ **Improved Claude Code CLI Integration**: Updated to use `--print --output-format json` with stdin
+- ✅ **Enhanced Timeout Handling**: 120-second timeout with specific timeout error messages
+- ✅ **Better Authentication Feedback**: Clear messages for Azure CLI vs PAT authentication failures
+
+### **Previous Updates**
+- ✅ **Simplified Parameters**: New short flags (`-b`, `-h`, `-t`, `-e`, `-c`, `-d`) for easier usage
+- ✅ **Cross-Platform Claude AI**: Full Claude integration on Windows, Linux/Mac, and Python
+- ✅ **Enhanced Authentication**: Azure CLI integration with PAT fallback
+- ✅ **Smart Automation**: Flexible scheduling with startup and daily triggers
+
+---
+
+This enhanced TFS/Azure DevOps ticket analyzer provides AI-powered analysis with comprehensive fallback options, multiple authentication methods, and flexible automation for any development team using Team Foundation Server or Azure DevOps.
+
+## 🔧 Troubleshooting
+
+### **Configuration Migration (v2.3.0+)**
+
+**🆕 Local Configuration Storage**
+Starting with v2.3.0, all configuration files are stored locally in the project's `.config` directory instead of user directories for better security and portability.
+
+**❓ "No configuration found" after update**
+If you had previous configurations, you'll need to run setup again:
+```powershell
+# Windows
+.\tfs-analyzer.ps1 setup
+
+# Linux/Mac
+./tfs-analyzer.sh setup
+
+# Python
+python tfs-analyzer.py --setup
+```
+
+**📁 Configuration File Locations (New)**
+- **All Configurations**: `PROJECT_ROOT/.config/`
+- **Automatically excluded** from version control via `.gitignore`
+- **More secure**: No sensitive data in user directories
+- **Portable**: Configuration travels with the project
+
+### **Claude AI Issues**
+
+**🆕 Enhanced Error Reporting**
+All platforms now show **detailed error messages** when Claude AI analysis fails. The error will appear in your output (console, HTML, text, or email) with specific reasons and solutions.
+
+**❌ "Claude Code CLI not found. Run setup-claude first."**
+```powershell
+# Install Claude Code from claude.ai/code
+# Verify installation
+claude-code --help
+
+# Re-run Claude setup
+.\tfs-analyzer.ps1 setup-claude          # Windows
+./tfs-analyzer.sh setup-claude           # Linux/Mac
+python tfs-analyzer.py --setup-claude    # Python
+```
+
+**❌ "No valid authentication method available. Configure Azure CLI or PAT."**
+```bash
+# Option 1: Azure CLI (Recommended)
+az login
+
+# Option 2: PAT Configuration
+.\tfs-analyzer.ps1 setup                 # Windows - reconfigure with PAT
+./tfs-analyzer.sh setup                  # Linux/Mac
+python tfs-analyzer.py --setup           # Python
+```
+
+**❌ "Command timed out after 120 seconds"**
+- Large datasets may cause timeouts
+- Try analyzing fewer days: `.\tfs-analyzer.ps1 1 -Claude`
+- Use traditional analysis for large datasets: `.\tfs-analyzer.ps1 7 -NoAI`
+
+**❌ "Authentication verification failed."**
+- Check Azure CLI login: `az account show`
+- Verify PAT hasn't expired
+- Test authentication: `.\tfs-analyzer.ps1 test-auth`
+
+**❌ General Claude Analysis Issues**
+- Script automatically falls back to traditional analysis with error details
+- Check detailed error message in output
+- Use `-Details` flag for additional debug information
+- Test with `-NoAI` to bypass AI analysis temporarily
+
+### **Authentication Issues**
+
+**❌ "Azure CLI authentication failed"**
+```powershell
+# Re-login to Azure CLI (tenant-level access)
+az login --allow-no-subscriptions
+
+# Verify account
+az account show
+
+# Test connection
+.\tfs-analyzer.ps1 test-auth
+```
+
+**❌ "All authentication methods failed"**
+- Ensure you have proper permissions
+- Verify TFS URL format
+- Check network connectivity
+- Try different authentication method in setup
+
+### **Enhanced Commands**
+
+**Windows PowerShell:**
+```powershell
+# Setup and configuration
+.\tfs-analyzer.ps1 setup           # Main setup with auth choice
+.\tfs-analyzer.ps1 setup-claude    # Claude AI integration
+.\tfs-analyzer.ps1 setup-output    # Output preferences
+.\tfs-analyzer.ps1 test-auth       # Test all authentication methods
+
+# Analysis modes
+.\tfs-analyzer.ps1 1               # Use configured default
+.\tfs-analyzer.ps1 3 -Claude        # Force AI analysis
+.\tfs-analyzer.ps1 7 -NoAI          # Traditional analysis only
+.\tfs-analyzer.ps1 1 -Details       # Detailed debug output
+
+# Output options
+.\tfs-analyzer.ps1 1 -Browser       # Open in browser
+.\tfs-analyzer.ps1 3 -Html          # Save HTML file
+.\tfs-analyzer.ps1 7 -Text          # Save text file
+.\tfs-analyzer.ps1 1 -Email         # Send via email
+
+# Combined options (mix and match)
+.\tfs-analyzer.ps1 3 -Claude -Html  # AI analysis + HTML output
+.\tfs-analyzer.ps1 1 -Browser -Details # Browser + debug info
+.\tfs-analyzer.ps1 7 -NoAI -Text    # Traditional + text output
+.\tfs-analyzer.ps1 2 -Claude -Browser -Details # AI + browser + debug
+```
+
+**Linux/Mac Bash:**
+```bash
+# Setup and configuration
+./tfs-analyzer.sh setup             # Main setup with auth choice
+./tfs-analyzer.sh setup-claude      # Claude AI integration
+./tfs-analyzer.sh test-auth         # Test authentication
+
+# Analysis modes
+./tfs-analyzer.sh 1                 # Use configured default
+./tfs-analyzer.sh 3 -c              # Force AI analysis
+./tfs-analyzer.sh 7 --no-ai         # Traditional analysis only
+./tfs-analyzer.sh 1 -d              # Detailed debug output
+
+# Output options
+./tfs-analyzer.sh 1 -b              # Open in browser
+./tfs-analyzer.sh 3 -h              # Save HTML file
+./tfs-analyzer.sh 7 -t              # Save text file
+./tfs-analyzer.sh 1 -e              # Send via email
+
+# Combined options (mix and match)  
+./tfs-analyzer.sh 3 -c -h           # AI analysis + HTML output
+./tfs-analyzer.sh 1 -b -d           # Browser + debug info
+./tfs-analyzer.sh 7 --no-ai -t      # Traditional + text output
+./tfs-analyzer.sh 2 -c -b -d        # AI + browser + debug
+```
+
+**Python (All Platforms):**
+```bash
+# Setup and configuration
+python tfs-analyzer.py --setup      # Main setup with auth choice
+python tfs-analyzer.py --setup-claude # Claude AI integration
+python tfs-analyzer.py --test-auth  # Test authentication
+
+# Analysis modes
+python tfs-analyzer.py 1            # Use configured default
+python tfs-analyzer.py 3 -c         # Force AI analysis
+python tfs-analyzer.py 7 --no-ai    # Traditional analysis only
+python tfs-analyzer.py 1 -d         # Detailed debug output
+
+# Output options
+python tfs-analyzer.py 1 -b         # Open in browser
+python tfs-analyzer.py 3 -h         # Save HTML file
+python tfs-analyzer.py 7 -t         # Save text file
+python tfs-analyzer.py 1 -e         # Send via email
+
+# Combined options (mix and match)
+python tfs-analyzer.py 3 -c -h      # AI analysis + HTML output
+python tfs-analyzer.py 1 -b -d      # Browser + debug info
+python tfs-analyzer.py 7 --no-ai -t # Traditional + text output
+python tfs-analyzer.py 2 -c -b -d   # AI + browser + debug
+```
+
+---
+
+## 📋 **Version History & Changelog**
+
+### **Version 2.3.1** (Latest - August 2025)
+
+#### **🔧 Bug Fixes**
+- **FIXED: Authentication Issues for On-premises TFS**
+  - Resolved authentication inconsistency between `test-claude` and main script execution
+  - Fixed Azure CLI authentication for Azure AD-integrated on-premises TFS servers
+  - Improved authentication detection logic to properly handle tenant-level Azure CLI authentication
+  - Updated PowerShell requests to use `-UseDefaultCredentials` when appropriate
+
+#### **✨ Improvements** 
+- **Enhanced Debug Output Control**
+  - Debug messages now only appear when using `-Details` flag (PowerShell), `-d` flag (Bash/Python)
+  - Cleaner console output for regular usage
+  - Improved troubleshooting with comprehensive debug information when requested
+
+#### **🛠️ Technical Changes**
+- Added `Invoke-TfsRestMethod` helper function for consistent authentication handling
+- Implemented script-level variable scoping for debug output control
+- Enhanced `Write-DebugOutput` function with proper parameter handling
+- Updated all REST API calls to use unified authentication approach
+
+### **Version 2.3.0** (August 2025)
+
+#### **🔒 Security & Configuration**
+- **Moved all configuration to local project directory** (`.config/` folder)
+- Enhanced `.gitignore` with comprehensive security exclusions  
+- Updated all scripts to use local configuration storage
+- Improved configuration portability and security
+
+#### **🚀 New Features**
+- **Cross-platform Claude AI integration** with MCP server support
+- **Interactive authentication setup** with guided prompts
+- **Enhanced error handling** and user-friendly error messages
+- **Simplified parameter names** for easier daily usage
+
+#### **🔧 Fixes**
+- Fixed Unicode character display issues across all platforms
+- Removed duplicate words from Unicode character replacements
+- Enhanced Azure CLI integration with `--allow-no-subscriptions` support
+- Improved cross-platform compatibility
+
+---
+
+## 🔐 **Authentication Troubleshooting**
+
+### **For On-premises TFS with Azure AD Integration**
+
+If you're using on-premises TFS that's integrated with Azure AD (like `https://tfs.yourcompany.com`):
+
+1. **Run Azure CLI authentication** (recommended):
+   ```bash
+   az login --allow-no-subscriptions
+   ```
+
+2. **Test the authentication**:
+   ```powershell
+   # PowerShell
+   .\tfs-analyzer.ps1 test-claude
+   
+   # Bash/Linux/Mac  
+   ./tfs-analyzer.sh test-claude
+   
+   # Python
+   python tfs-analyzer.py --test-claude
+   ```
+
+3. **If you get authentication errors**:
+   - Verify you can access your TFS server in a browser
+   - Ensure you're logged in with the correct Azure AD account
+   - Try running setup again: `.\tfs-analyzer.ps1 setup`
+
+### **Authentication Methods by Environment**
+
+| Environment | Recommended Method | Alternative |
+|-------------|-------------------|-------------|
+| **Azure DevOps Cloud** | Azure CLI (`az login`) | Personal Access Token |
+| **On-premises TFS + Azure AD** | Azure CLI (`az login --allow-no-subscriptions`) | Personal Access Token |  
+| **Traditional On-premises TFS** | Personal Access Token | Windows Authentication |
+
+### **Getting More Help**
+
+- Use `-Details` (PowerShell) or `-d` (Bash/Python) for debug information
+- Check the generated debug file: `TFS-Debug-Data.txt`  
+- Verify your TFS URL format and project name in the configuration
