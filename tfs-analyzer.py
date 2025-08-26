@@ -817,8 +817,297 @@ Please format the response as structured analysis with clear sections for each w
             print("   ... (see detailed analysis in full report)")
         print()
         
-        # Then show traditional analysis
-        self._generate_console_output(work_items, days)
+        # Then show enhanced analysis with Claude priority integration
+        self._generate_enhanced_console_detailed_output(work_items, claude_response, days)
+    
+    def _generate_enhanced_console_detailed_output(self, work_items: List[Dict[str, Any]], claude_response: str, days: int):
+        """Generate enhanced console output with Claude priority integration"""
+        print("Enhanced Work Items Analysis:")
+        print("=" * 40)
+        
+        priority_colors = {
+            'HIGH': '\033[91m',     # Red
+            'MEDIUM': '\033[93m',   # Yellow  
+            'LOW': '\033[92m',      # Green
+        }
+        reset_color = '\033[0m'
+        
+        for item in work_items:
+            work_item_id = str(item.get('id', ''))
+            fields = item.get('fields', {})
+            
+            # Get traditional priority as fallback
+            traditional_score, traditional_priority = self.calculate_priority_score(item)
+            
+            # Try to extract Claude's priority assessment for this work item ID
+            claude_priority = None
+            priority_source = "Traditional Analysis"
+            
+            if claude_response:
+                # Look for this work item ID in Claude's response
+                lines = claude_response.split('\n')
+                for i, line in enumerate(lines):
+                    if work_item_id in line or f"#{work_item_id}" in line or f"ID: {work_item_id}" in line:
+                        # Check surrounding lines for priority keywords
+                        context_start = max(0, i - 5)
+                        context_end = min(len(lines), i + 10)
+                        context_section = '\n'.join(lines[context_start:context_end])
+                        
+                        if 'HIGH' in context_section.upper():
+                            claude_priority = 'HIGH'
+                            priority_source = "Claude AI Assessment"
+                            break
+                        elif 'MEDIUM' in context_section.upper():
+                            claude_priority = 'MEDIUM'
+                            priority_source = "Claude AI Assessment"
+                            break
+                        elif 'LOW' in context_section.upper():
+                            claude_priority = 'LOW'
+                            priority_source = "Claude AI Assessment"
+                            break
+            
+            # Use Claude's priority if available, otherwise use traditional
+            final_priority = claude_priority if claude_priority else traditional_priority
+            
+            color = priority_colors.get(final_priority, '')
+            
+            print(f"{color}[{final_priority}]{reset_color} {fields.get('System.Title', 'No Title')}")
+            print(f"   Type: {fields.get('System.WorkItemType', 'Unknown')}")
+            print(f"   State: {fields.get('System.State', 'Unknown')}")
+            print(f"   ID: {work_item_id}")
+            print(f"   Priority Source: {priority_source}")
+            if claude_priority:
+                print(f"   Traditional Score: {traditional_score} ({traditional_priority})")
+            print(f"   Score: {traditional_score}")
+            
+            analysis = self.analyze_content(item)
+            print(f"   Action: {analysis['action_items']}")
+            print()
+    
+    def _generate_enhanced_html_output(self, work_items: List[Dict[str, Any]], claude_response: str, days: int, open_browser: bool = False):
+        """Generate enhanced HTML output with Claude priority integration"""
+        output_file = f"/tmp/tfs_enhanced_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+        
+        # Count priorities for summary (using Claude priorities when available)
+        high_count = medium_count = low_count = 0
+        enhanced_items = []
+        
+        for item in work_items:
+            work_item_id = str(item.get('id', ''))
+            traditional_score, traditional_priority = self.calculate_priority_score(item)
+            
+            # Try to extract Claude's priority assessment
+            claude_priority = None
+            priority_source = "Traditional Analysis"
+            
+            if claude_response:
+                lines = claude_response.split('\n')
+                for i, line in enumerate(lines):
+                    if work_item_id in line or f"#{work_item_id}" in line or f"ID: {work_item_id}" in line:
+                        context_start = max(0, i - 5)
+                        context_end = min(len(lines), i + 10)
+                        context_section = '\n'.join(lines[context_start:context_end])
+                        
+                        if 'HIGH' in context_section.upper():
+                            claude_priority = 'HIGH'
+                            priority_source = "Claude AI Assessment"
+                            break
+                        elif 'MEDIUM' in context_section.upper():
+                            claude_priority = 'MEDIUM'
+                            priority_source = "Claude AI Assessment"
+                            break
+                        elif 'LOW' in context_section.upper():
+                            claude_priority = 'LOW'
+                            priority_source = "Claude AI Assessment"
+                            break
+            
+            final_priority = claude_priority if claude_priority else traditional_priority
+            
+            # Count for summary
+            if final_priority == 'HIGH':
+                high_count += 1
+            elif final_priority == 'MEDIUM':
+                medium_count += 1
+            else:
+                low_count += 1
+                
+            enhanced_items.append({
+                'item': item,
+                'final_priority': final_priority,
+                'priority_source': priority_source,
+                'traditional_score': traditional_score
+            })
+        
+        html_template = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>Enhanced TFS Ticket Analysis with Claude AI</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+        .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }}
+        .header {{ text-align: center; color: #333; border-bottom: 2px solid #0078d4; padding-bottom: 10px; }}
+        .summary {{ display: flex; justify-content: space-around; margin: 20px 0; }}
+        .summary-card {{ padding: 15px; border-radius: 5px; text-align: center; color: white; }}
+        .summary-high {{ background: #dc3545; }}
+        .summary-medium {{ background: #ffc107; color: #212529; }}
+        .summary-low {{ background: #28a745; }}
+        .work-item {{ margin: 15px 0; padding: 15px; border-radius: 5px; border-left: 5px solid #ccc; background: #fafafa; }}
+        .high {{ border-left-color: #dc3545; }}
+        .medium {{ border-left-color: #ffc107; }}
+        .low {{ border-left-color: #28a745; }}
+        .priority {{ font-weight: bold; padding: 4px 8px; border-radius: 4px; color: white; display: inline-block; }}
+        .priority.high {{ background: #dc3545; }}
+        .priority.medium {{ background: #ffc107; color: #212529; }}
+        .priority.low {{ background: #28a745; }}
+        .title {{ font-size: 18px; font-weight: bold; margin: 10px 0; }}
+        .details {{ color: #666; font-size: 14px; }}
+        .claude-insights {{ background: #e7f3ff; padding: 10px; border-radius: 5px; margin: 10px 0; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Enhanced TFS Ticket Analysis with Claude AI</h1>
+            <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Enhanced with Claude AI Priority Assessment</p>
+        </div>
+        
+        <div class="summary">
+            <div class="summary-card summary-high">High Priority: {high_count}</div>
+            <div class="summary-card summary-medium">Medium Priority: {medium_count}</div>
+            <div class="summary-card summary-low">Low Priority: {low_count}</div>
+        </div>
+        
+        <div class="claude-insights">
+            <h3>Claude AI Insights</h3>
+            <pre>{"".join(claude_response.split("\\n")[:10])}</pre>
+        </div>
+        
+        <h2>Work Items with Enhanced Priority Analysis</h2>'''
+        
+        for enhanced_item in enhanced_items:
+            item = enhanced_item['item']
+            fields = item.get('fields', {})
+            final_priority = enhanced_item['final_priority']
+            priority_source = enhanced_item['priority_source']
+            traditional_score = enhanced_item['traditional_score']
+            priority_class = final_priority.lower()
+            
+            html_template += f'''
+    <div class="work-item {priority_class}">
+        <span class="priority {priority_class}">{final_priority}</span>
+        <div class="title">{fields.get('System.Title', 'No Title')}</div>
+        <div class="details">
+            <strong>Type:</strong> {fields.get('System.WorkItemType', 'Unknown')} | 
+            <strong>State:</strong> {fields.get('System.State', 'Unknown')} | 
+            <strong>ID:</strong> {item.get('id', 'Unknown')} | 
+            <strong>Score:</strong> {traditional_score}<br>
+            <strong>Priority Source:</strong> {priority_source}<br>
+            <strong>Assigned To:</strong> {fields.get('System.AssignedTo', 'Unassigned')}<br>
+            <strong>URL:</strong> <a href="{self.config.get('tfs_url', '')}/_workitems/edit/{item.get('id', '')}" target="_blank">View in TFS</a>
+        </div>
+    </div>'''
+        
+        html_template += '''
+    </div>
+</body>
+</html>'''
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(html_template)
+        
+        print(f"Enhanced HTML report generated: {output_file}")
+        
+        if open_browser:
+            import webbrowser
+            webbrowser.open(f'file://{output_file}')
+            print("Enhanced report opened in browser")
+    
+    def _generate_enhanced_text_output(self, work_items: List[Dict[str, Any]], claude_response: str, days: int):
+        """Generate enhanced text output with Claude priority integration"""
+        output_file = f"/tmp/tfs_enhanced_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write("Enhanced TFS Ticket Analysis with Claude AI\n")
+            f.write("=" * 50 + "\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("Enhanced with Claude AI Priority Assessment\n\n")
+            
+            f.write("Claude AI Insights:\n")
+            f.write("-" * 20 + "\n")
+            claude_lines = claude_response.split('\n')[:10]
+            for line in claude_lines:
+                if line.strip():
+                    f.write(f"   {line}\n")
+            f.write("\n")
+            
+            f.write("Work Items with Enhanced Priority Analysis:\n")
+            f.write("=" * 45 + "\n\n")
+            
+            # Count priorities for summary
+            high_count = medium_count = low_count = 0
+            
+            for item in work_items:
+                work_item_id = str(item.get('id', ''))
+                fields = item.get('fields', {})
+                traditional_score, traditional_priority = self.calculate_priority_score(item)
+                
+                # Try to extract Claude's priority assessment
+                claude_priority = None
+                priority_source = "Traditional Analysis"
+                
+                if claude_response:
+                    lines = claude_response.split('\n')
+                    for i, line in enumerate(lines):
+                        if work_item_id in line or f"#{work_item_id}" in line or f"ID: {work_item_id}" in line:
+                            context_start = max(0, i - 5)
+                            context_end = min(len(lines), i + 10)
+                            context_section = '\n'.join(lines[context_start:context_end])
+                            
+                            if 'HIGH' in context_section.upper():
+                                claude_priority = 'HIGH'
+                                priority_source = "Claude AI Assessment"
+                                break
+                            elif 'MEDIUM' in context_section.upper():
+                                claude_priority = 'MEDIUM'
+                                priority_source = "Claude AI Assessment"
+                                break
+                            elif 'LOW' in context_section.upper():
+                                claude_priority = 'LOW'
+                                priority_source = "Claude AI Assessment"
+                                break
+                
+                final_priority = claude_priority if claude_priority else traditional_priority
+                
+                # Count for summary
+                if final_priority == 'HIGH':
+                    high_count += 1
+                elif final_priority == 'MEDIUM':
+                    medium_count += 1
+                else:
+                    low_count += 1
+                
+                f.write(f"[{final_priority}] {fields.get('System.Title', 'No Title')}\n")
+                f.write(f"   Type: {fields.get('System.WorkItemType', 'Unknown')}\n")
+                f.write(f"   State: {fields.get('System.State', 'Unknown')}\n")
+                f.write(f"   ID: {work_item_id}\n")
+                f.write(f"   Priority Source: {priority_source}\n")
+                if claude_priority:
+                    f.write(f"   Traditional Score: {traditional_score} ({traditional_priority})\n")
+                f.write(f"   Score: {traditional_score}\n")
+                
+                analysis = self.analyze_content(item)
+                f.write(f"   Action: {analysis['action_items']}\n")
+                f.write(f"   URL: {self.config.get('tfs_url', '')}/_workitems/edit/{work_item_id}\n")
+                f.write("\n")
+            
+            f.write("\nSUMMARY:\n")
+            f.write("-" * 10 + "\n")
+            f.write(f"Total Tickets: {len(work_items)}\n")
+            f.write(f"High Priority: {high_count}\n")
+            f.write(f"Medium Priority: {medium_count}\n")
+            f.write(f"Low Priority: {low_count}\n")
+        
+        print(f"Enhanced text report generated: {output_file}")
     
     def generate_output(self, work_items: List[Dict[str, Any]], output_type: str, days: int, use_claude: bool = False):
         """Generate output in specified format"""

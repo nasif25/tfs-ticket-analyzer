@@ -1026,8 +1026,308 @@ generate_enhanced_console_output() {
     head -20 "$claude_response" 2>/dev/null || echo "Claude analysis available in detailed view"
     echo
     
-    # Then display traditional analysis enhanced with any specific recommendations
-    generate_console_output "$work_items_file" "$days"
+    # Then display enhanced analysis with Claude priority integration
+    generate_enhanced_console_detailed_output "$work_items_file" "$claude_response" "$days"
+}
+
+generate_enhanced_console_detailed_output() {
+    local work_items_file="$1"
+    local claude_response="$2"
+    local days="$3"
+    
+    echo -e "${CYAN}Enhanced Work Items Analysis:${NC}"
+    echo "================================="
+    
+    # Process each work item and try to extract Claude's priority assessment
+    local line_number=0
+    while IFS= read -r line; do
+        line_number=$((line_number + 1))
+        
+        # Skip empty lines and structural JSON
+        if [[ "$line" =~ ^\s*[\[\]{}]*\s*$ ]] || [[ "$line" =~ ^\s*$ ]]; then
+            continue
+        fi
+        
+        # Extract work item data
+        local id=$(echo "$line" | grep -o '"id":[0-9]*' | sed 's/.*://' 2>/dev/null)
+        if [[ -z "$id" ]]; then
+            continue
+        fi
+        
+        local title=$(echo "$line" | grep -o '"System.Title":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        local state=$(echo "$line" | grep -o '"System.State":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        local work_type=$(echo "$line" | grep -o '"System.WorkItemType":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        
+        # Get traditional priority as fallback
+        local traditional_priority_info
+        traditional_priority_info=$(calculate_priority_score "$line")
+        local traditional_score=$(echo "$traditional_priority_info" | cut -d' ' -f1)
+        local traditional_priority=$(echo "$traditional_priority_info" | cut -d' ' -f2)
+        
+        # Try to extract Claude's priority assessment for this ticket ID
+        local claude_priority=""
+        local claude_reasons="Traditional analysis used"
+        
+        # Look for this ticket ID in Claude's response and extract priority
+        if [[ -f "$claude_response" ]]; then
+            local claude_section
+            claude_section=$(grep -A 10 -B 2 "ID.*$id\|#$id\|ticket.*$id" "$claude_response" 2>/dev/null | head -20)
+            
+            if [[ -n "$claude_section" ]]; then
+                # Extract priority level (HIGH/MEDIUM/LOW)
+                if echo "$claude_section" | grep -qi "HIGH"; then
+                    claude_priority="HIGH"
+                    claude_reasons="Claude AI assessment - High priority"
+                elif echo "$claude_section" | grep -qi "MEDIUM"; then
+                    claude_priority="MEDIUM"
+                    claude_reasons="Claude AI assessment - Medium priority"
+                elif echo "$claude_section" | grep -qi "LOW"; then
+                    claude_priority="LOW"
+                    claude_reasons="Claude AI assessment - Low priority"
+                fi
+            fi
+        fi
+        
+        # Use Claude's priority if available, otherwise use traditional
+        local final_priority="${claude_priority:-$traditional_priority}"
+        local priority_source="${claude_reasons}"
+        
+        # Set color based on final priority
+        local priority_color=""
+        case "$final_priority" in
+            "HIGH") priority_color="$RED" ;;
+            "MEDIUM") priority_color="$YELLOW" ;;
+            "LOW") priority_color="$GREEN" ;;
+        esac
+        
+        # Display enhanced work item
+        echo -e "${priority_color}[$final_priority]${NC} $title"
+        echo -e "   Type: $work_type"
+        echo -e "   State: $state"
+        echo -e "   ID: $id"
+        echo -e "   Priority Source: $priority_source"
+        echo -e "   URL: ${TFS_URL}/_workitems/edit/$id"
+        echo
+        
+    done < "$work_items_file"
+}
+
+generate_enhanced_html_output() {
+    local work_items_file="$1"
+    local claude_response="$2"
+    local days="$3"
+    local open_browser="$4"
+    
+    local output_file="/tmp/tfs_enhanced_analysis_$(date +%Y%m%d_%H%M%S).html"
+    
+    # Generate HTML with Claude priority integration
+    cat > "$output_file" << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enhanced TFS Ticket Analysis with Claude AI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .header { text-align: center; color: #333; border-bottom: 2px solid #0078d4; padding-bottom: 10px; }
+        .work-item { margin: 15px 0; padding: 15px; border-radius: 5px; border-left: 5px solid #ccc; background: #fafafa; }
+        .high { border-left-color: #dc3545; }
+        .medium { border-left-color: #ffc107; }
+        .low { border-left-color: #28a745; }
+        .priority { font-weight: bold; padding: 4px 8px; border-radius: 4px; color: white; display: inline-block; }
+        .priority.high { background: #dc3545; }
+        .priority.medium { background: #ffc107; color: #212529; }
+        .priority.low { background: #28a745; }
+        .title { font-size: 18px; font-weight: bold; margin: 10px 0; }
+        .details { color: #666; font-size: 14px; }
+        .claude-insights { background: #e7f3ff; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Enhanced TFS Ticket Analysis with Claude AI</h1>
+            <p>Generated: $(date) | Enhanced with Claude AI Priority Assessment</p>
+        </div>
+        
+        <div class="claude-insights">
+            <h3>Claude AI Insights</h3>
+            <pre>$(head -20 "$claude_response" 2>/dev/null || echo "Claude analysis integrated into individual tickets below")</pre>
+        </div>
+        
+        <h2>Work Items with Enhanced Priority Analysis</h2>
+EOF
+
+    # Process each work item with Claude priority integration
+    while IFS= read -r line; do
+        # Skip empty lines and structural JSON
+        if [[ "$line" =~ ^\s*[\[\]{}]*\s*$ ]] || [[ "$line" =~ ^\s*$ ]]; then
+            continue
+        fi
+        
+        # Extract work item data
+        local id=$(echo "$line" | grep -o '"id":[0-9]*' | sed 's/.*://' 2>/dev/null)
+        if [[ -z "$id" ]]; then
+            continue
+        fi
+        
+        local title=$(echo "$line" | grep -o '"System.Title":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        local state=$(echo "$line" | grep -o '"System.State":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        local work_type=$(echo "$line" | grep -o '"System.WorkItemType":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        local assigned_to=$(echo "$line" | grep -o '"System.AssignedTo":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+        
+        # Get traditional priority as fallback
+        local traditional_priority_info
+        traditional_priority_info=$(calculate_priority_score "$line")
+        local traditional_priority=$(echo "$traditional_priority_info" | cut -d' ' -f2)
+        
+        # Try to extract Claude's priority assessment
+        local claude_priority=""
+        local priority_source="Traditional Analysis"
+        
+        if [[ -f "$claude_response" ]]; then
+            local claude_section
+            claude_section=$(grep -A 10 -B 2 "ID.*$id\|#$id\|ticket.*$id" "$claude_response" 2>/dev/null | head -20)
+            
+            if [[ -n "$claude_section" ]]; then
+                if echo "$claude_section" | grep -qi "HIGH"; then
+                    claude_priority="HIGH"
+                    priority_source="Claude AI Assessment"
+                elif echo "$claude_section" | grep -qi "MEDIUM"; then
+                    claude_priority="MEDIUM" 
+                    priority_source="Claude AI Assessment"
+                elif echo "$claude_section" | grep -qi "LOW"; then
+                    claude_priority="LOW"
+                    priority_source="Claude AI Assessment"
+                fi
+            fi
+        fi
+        
+        # Use Claude's priority if available, otherwise traditional
+        local final_priority="${claude_priority:-$traditional_priority}"
+        local priority_class=$(echo "$final_priority" | tr '[:upper:]' '[:lower:]')
+        
+        cat >> "$output_file" << EOF
+    <div class="work-item $priority_class">
+        <span class="priority $priority_class">$final_priority</span>
+        <div class="title">$title</div>
+        <div class="details">
+            <strong>Type:</strong> $work_type | 
+            <strong>State:</strong> $state | 
+            <strong>ID:</strong> $id | 
+            <strong>Priority Source:</strong> $priority_source<br>
+            <strong>Assigned To:</strong> $assigned_to<br>
+            <strong>URL:</strong> <a href="${TFS_URL}/_workitems/edit/$id" target="_blank">View in TFS</a>
+        </div>
+    </div>
+EOF
+        
+    done < "$work_items_file"
+    
+    cat >> "$output_file" << 'EOF'
+    </div>
+</body>
+</html>
+EOF
+
+    echo "Enhanced HTML report generated: $output_file"
+    
+    if [[ "$open_browser" == "true" ]]; then
+        if command -v xdg-open > /dev/null; then
+            xdg-open "$output_file"
+        elif command -v open > /dev/null; then
+            open "$output_file"
+        else
+            log_message "INFO" "Please open: $output_file"
+        fi
+        log_message "INFO" "Enhanced report opened in browser"
+    fi
+}
+
+generate_enhanced_text_output() {
+    local work_items_file="$1"
+    local claude_response="$2"
+    local days="$3"
+    
+    local output_file="/tmp/tfs_enhanced_analysis_$(date +%Y%m%d_%H%M%S).txt"
+    
+    {
+        echo "Enhanced TFS Ticket Analysis with Claude AI"
+        echo "=========================================="
+        echo "Generated: $(date)"
+        echo "Enhanced with Claude AI Priority Assessment"
+        echo ""
+        echo "Claude AI Insights:"
+        echo "-------------------"
+        head -10 "$claude_response" 2>/dev/null || echo "Claude analysis integrated into individual tickets below"
+        echo ""
+        echo "Work Items with Enhanced Priority Analysis:"
+        echo "============================================"
+        echo ""
+        
+        # Process each work item with Claude priority integration
+        while IFS= read -r line; do
+            # Skip empty lines and structural JSON
+            if [[ "$line" =~ ^\s*[\[\]{}]*\s*$ ]] || [[ "$line" =~ ^\s*$ ]]; then
+                continue
+            fi
+            
+            # Extract work item data
+            local id=$(echo "$line" | grep -o '"id":[0-9]*' | sed 's/.*://' 2>/dev/null)
+            if [[ -z "$id" ]]; then
+                continue
+            fi
+            
+            local title=$(echo "$line" | grep -o '"System.Title":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+            local state=$(echo "$line" | grep -o '"System.State":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+            local work_type=$(echo "$line" | grep -o '"System.WorkItemType":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+            local assigned_to=$(echo "$line" | grep -o '"System.AssignedTo":"[^"]*"' | sed 's/.*:"//;s/"$//' 2>/dev/null)
+            
+            # Get traditional priority as fallback
+            local traditional_priority_info
+            traditional_priority_info=$(calculate_priority_score "$line")
+            local traditional_priority=$(echo "$traditional_priority_info" | cut -d' ' -f2)
+            
+            # Try to extract Claude's priority assessment
+            local claude_priority=""
+            local priority_source="Traditional Analysis"
+            
+            if [[ -f "$claude_response" ]]; then
+                local claude_section
+                claude_section=$(grep -A 10 -B 2 "ID.*$id\|#$id\|ticket.*$id" "$claude_response" 2>/dev/null | head -20)
+                
+                if [[ -n "$claude_section" ]]; then
+                    if echo "$claude_section" | grep -qi "HIGH"; then
+                        claude_priority="HIGH"
+                        priority_source="Claude AI Assessment"
+                    elif echo "$claude_section" | grep -qi "MEDIUM"; then
+                        claude_priority="MEDIUM"
+                        priority_source="Claude AI Assessment" 
+                    elif echo "$claude_section" | grep -qi "LOW"; then
+                        claude_priority="LOW"
+                        priority_source="Claude AI Assessment"
+                    fi
+                fi
+            fi
+            
+            # Use Claude's priority if available, otherwise traditional
+            local final_priority="${claude_priority:-$traditional_priority}"
+            
+            echo "[$final_priority] $title"
+            echo "   Type: $work_type"
+            echo "   State: $state"
+            echo "   ID: $id"
+            echo "   Priority Source: $priority_source"
+            echo "   Assigned To: $assigned_to"
+            echo "   URL: ${TFS_URL}/_workitems/edit/$id"
+            echo ""
+            
+        done < "$work_items_file"
+        
+    } > "$output_file"
+    
+    echo "Enhanced text report generated: $output_file"
+    log_message "INFO" "Please open: $output_file"
 }
 
 setup_cron_job() {
