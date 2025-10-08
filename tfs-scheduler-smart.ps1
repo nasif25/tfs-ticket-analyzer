@@ -78,8 +78,16 @@ if (-not `$AlreadyRan) {
 
 if (`$ShouldRun) {
     Write-Host "Running TFS Ticket Analyzer - `$Reason (`$Today)" -ForegroundColor Green
-    & "$ScriptPath" 1 -$OutputMethod
-    
+
+    # Build parameter based on output method
+    switch ("$OutputMethod".ToLower()) {
+        "browser" { & "$ScriptPath" 1 -Browser }
+        "html" { & "$ScriptPath" 1 -Html }
+        "text" { & "$ScriptPath" 1 -Text }
+        "email" { & "$ScriptPath" 1 -Email }
+        default { & "$ScriptPath" 1 -Browser }
+    }
+
     # Update the log file with current date and trigger info
     "`$Today (`$TriggerType)" | Out-File -FilePath `$LogFile -Encoding UTF8
     Write-Host "TFS Analyzer completed" -ForegroundColor Green

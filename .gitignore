@@ -17,3 +17,6 @@ TFS-Debug-Data.txt
 temp_*
 claude_*_request*
 claude_*_response*
+
+# Claude instruction files
+CLAUDE.md

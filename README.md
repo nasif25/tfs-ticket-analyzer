@@ -83,6 +83,21 @@ python tfs-analyzer.py 1 --no-ai -d  # Traditional analysis with debug
 
 ### 2. First-time Setup
 
+**🎯 For Beginners - Easy Setup Wizard (Windows Only):**
+```powershell
+# Interactive step-by-step setup wizard
+.\easy-setup.ps1
+```
+This wizard will guide you through:
+- ✓ TFS connection setup
+- ✓ Authentication configuration (Azure CLI or PAT)
+- ✓ User preferences
+- ✓ Output method selection
+- ✓ Optional daily automation
+- ✓ Connection testing
+
+**🔧 For Advanced Users - Manual Setup:**
+
 **Windows:**
 ```powershell
 # Basic setup with authentication configuration

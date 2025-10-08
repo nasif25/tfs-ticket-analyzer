@@ -56,10 +56,10 @@ try {
 
     # Determine the PowerShell argument based on output method
     $Arguments = switch ($OutputMethod.ToLower()) {
-        "browser" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -ShowInBrowser" }
-        "html" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -SaveHtml" }
-        "text" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -SaveText" }
-        default { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -ShowInBrowser" }
+        "browser" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Browser" }
+        "html" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Html" }
+        "text" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Text" }
+        default { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Browser" }
     }
     
     # Create the action (what to run)
