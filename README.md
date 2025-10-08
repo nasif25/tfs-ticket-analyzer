@@ -9,18 +9,20 @@ A comprehensive **cross-platform** tool that analyzes your TFS/Azure DevOps tick
 # Basic usage with simplified parameters
 .\tfs-analyzer.ps1 1 -Browser        # Today's tickets in browser
 .\tfs-analyzer.ps1 3 -Claude -Html   # 3 days AI analysis to HTML
-.\tfs-analyzer.ps1 7 -Text          # Week summary to text file  
-.\tfs-analyzer.ps1 2 -Email         # 2 days summary via email
+.\tfs-analyzer.ps1 7 -Text          # Week summary to text file
+.\tfs-analyzer.ps1 12 -Hours -Browser # Last 12 hours in browser
+.\tfs-analyzer.ps1 6 -Hours -Claude -Html # Last 6 hours with AI to HTML
 .\tfs-analyzer.ps1 1 -NoAI -Details # Traditional analysis with debug
 ```
 
 **Linux/Mac Bash:**
 ```bash
-# Basic usage with simplified parameters  
+# Basic usage with simplified parameters
 ./tfs-analyzer.sh 1 -b               # Today's tickets in browser
 ./tfs-analyzer.sh 3 -c -h            # 3 days AI analysis to HTML
 ./tfs-analyzer.sh 7 -t               # Week summary to text file
-./tfs-analyzer.sh 2 -e               # 2 days summary via email
+./tfs-analyzer.sh 12 --hours -b      # Last 12 hours in browser
+./tfs-analyzer.sh 6 --hours -c -h    # Last 6 hours with AI to HTML
 ./tfs-analyzer.sh 1 --no-ai -d       # Traditional analysis with debug
 ```
 
@@ -28,9 +30,10 @@ A comprehensive **cross-platform** tool that analyzes your TFS/Azure DevOps tick
 ```bash
 # Basic usage with simplified parameters
 python tfs-analyzer.py 1 -b          # Today's tickets in browser
-python tfs-analyzer.py 3 -c -h       # 3 days AI analysis to HTML  
+python tfs-analyzer.py 3 -c -h       # 3 days AI analysis to HTML
 python tfs-analyzer.py 7 -t          # Week summary to text file
-python tfs-analyzer.py 2 -e          # 2 days summary via email
+python tfs-analyzer.py 12 --hours -b # Last 12 hours in browser
+python tfs-analyzer.py 6 --hours -c -h # Last 6 hours with AI to HTML
 python tfs-analyzer.py 1 --no-ai -d  # Traditional analysis with debug
 ```
 
@@ -45,7 +48,8 @@ python tfs-analyzer.py 1 --no-ai -d  # Traditional analysis with debug
 | Save text file | `-Text` | `-t, --text` | `-SaveText` |
 | Send via email | `-Email` | `-e, --email` | `-SendEmail` |
 | Detailed output | `-Details` | `-d, --details` | `-VerboseOutput` |
-| Days to analyze | `[number]` | `[number]` | Same |
+| Time to analyze | `[number]` | `[number]` | Days (default) or Hours with `-Hours` |
+| Use hours instead of days | `-Hours` | `--hours` | N/A |
 
 > **📝 Note for Existing Users:** The old parameter names still work for backward compatibility, but the new simplified names are recommended for easier use.
 

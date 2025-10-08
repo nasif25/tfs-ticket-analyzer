@@ -508,14 +508,17 @@ class TFSAnalyzer:
             print(f"[ERROR] Connection failed: {e}")
             return False
     
-    def get_work_items(self, days: int) -> List[Dict[str, Any]]:
+    def get_work_items(self, timevalue: int, use_hours: bool = False) -> List[Dict[str, Any]]:
         """Retrieve work items from TFS"""
         if not self.config:
             raise Exception("Configuration not found. Run setup first.")
-        
-        # Calculate date range
+
+        # Calculate date range based on hours or days
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
+        if use_hours:
+            start_date = end_date - timedelta(hours=timevalue)
+        else:
+            start_date = end_date - timedelta(days=timevalue)
         
         # Build WIQL query
         wiql_query = f"""
@@ -1377,31 +1380,34 @@ def setup_cron_job(output_method: str = 'console', time_str: str = '08:00'):
 
 def main():
     parser = argparse.ArgumentParser(description='Cross-platform TFS Ticket Analyzer with Claude AI support')
-    parser.add_argument('days', nargs='?', default=1, type=int, help='Number of days to analyze')
-    
+    parser.add_argument('timevalue', nargs='?', default=1, type=int, help='Number of days or hours to analyze')
+
     # Setup commands
     parser.add_argument('--setup', action='store_true', help='Run configuration setup')
     parser.add_argument('--setup-claude', action='store_true', help='Setup Claude AI integration')
     parser.add_argument('--test-claude', action='store_true', help='Test Claude AI configuration')
     parser.add_argument('--setup-output', action='store_true', help='Configure default output method')
     parser.add_argument('--test-auth', action='store_true', help='Test TFS authentication')
-    
+
+    # Time unit parameter
+    parser.add_argument('--hours', action='store_true', help='Interpret timevalue as hours instead of days')
+
     # Simplified parameters
     parser.add_argument('-b', '--browser', action='store_true', help='Open results in browser')
-    parser.add_argument('-h', '--html', action='store_true', help='Save as HTML file')
+    parser.add_argument('-H', '--html', action='store_true', help='Save as HTML file')
     parser.add_argument('-t', '--text', action='store_true', help='Save as text file')
     parser.add_argument('-e', '--email', action='store_true', help='Send via email')
     parser.add_argument('-c', '--claude', action='store_true', help='Use Claude AI for enhanced analysis')
     parser.add_argument('--no-ai', action='store_true', help='Disable Claude AI (traditional analysis only)')
     parser.add_argument('-d', '--details', action='store_true', help='Show detailed processing information')
-    
+
     # Traditional parameters for backward compatibility
     parser.add_argument('--output', choices=['browser', 'html', 'text', 'console', 'email'], help='Output method')
     parser.add_argument('--windows-auth', action='store_true', help='Use Windows authentication')
     parser.add_argument('--setup-cron', action='store_true', help='Setup daily cron job (Linux/Mac)')
     parser.add_argument('--cron-time', default='08:00', help='Cron job time (HH:MM format)')
     parser.add_argument('--verbose', action='store_true', help='Verbose output (same as --details)')
-    parser.add_argument('--version', action='version', version='TFS Analyzer 2.1.0')
+    parser.add_argument('--version', action='version', version='TFS Analyzer 2.2.0')
     
     args = parser.parse_args()
     
@@ -1500,14 +1506,15 @@ def main():
     
     # Verbose output
     verbose = args.verbose or args.details
+    time_unit = "hours" if args.hours else "days"
     if verbose:
-        print(f"Testing Analyzing last {args.days} days...")
+        print(f"Testing Analyzing last {args.timevalue} {time_unit}...")
         print(f"Default Output Method Output method: {output_method}")
         print(f"Claude AI Integration Setup Claude AI: {'enabled' if use_claude else 'disabled'}")
-    
+
     # Get and analyze work items
-    work_items = analyzer.get_work_items(args.days)
-    analyzer.generate_output(work_items, output_method, args.days, use_claude)
+    work_items = analyzer.get_work_items(args.timevalue, args.hours)
+    analyzer.generate_output(work_items, output_method, args.timevalue, use_claude)
 
 if __name__ == '__main__':
     main()

@@ -63,6 +63,25 @@ This guide helps you test the TFS Ticket Analyzer on different platforms.
 - Output opens in browser/saves file/displays in console
 - No script errors
 
+### Test 3a: Hours-Based Analysis
+
+```powershell
+# Analyze last 12 hours
+.\tfs-analyzer.ps1 12 -Hours -Browser
+
+# Analyze last 6 hours with AI
+.\tfs-analyzer.ps1 6 -Hours -Claude -Html
+
+# Analyze last 24 hours to text
+.\tfs-analyzer.ps1 24 -Hours -Text
+```
+
+**Expected Result:**
+- Work items retrieved from correct time range (hours, not days)
+- Proper time description in output ("last 12 hours" vs "last 12 days")
+- All output methods work correctly with hours
+- Date calculations accurate for hours
+
 ### Test 4: Claude AI Integration (Optional)
 
 ```powershell
@@ -182,6 +201,21 @@ ls -l tfs-analyzer.sh tfs-scheduler.sh
 - Files saved to `~/Downloads/` or `~/Documents/`
 - No bash syntax errors
 - Proper ANSI color codes in terminal
+
+### Test 3a: Hours-Based Analysis (Bash Version)
+
+```bash
+# Hours-based analysis
+./tfs-analyzer.sh 12 --hours -b        # Last 12 hours in browser
+./tfs-analyzer.sh 6 --hours -c -h      # Last 6 hours with AI to HTML
+./tfs-analyzer.sh 24 --hours -t        # Last 24 hours to text file
+```
+
+**Expected Result:**
+- Work items filtered by hours instead of days
+- Time description shows "hours" in output
+- Date calculations correct for all platforms (GNU date vs BSD date)
+- No date parsing errors
 
 ### Test 4: Python Version Testing
 
@@ -321,6 +355,8 @@ Use this checklist to verify all features work correctly:
 - [ ] Retrieve assigned work items
 - [ ] Detect @mentions in work items
 - [ ] Days-based time range (1, 3, 7, etc.)
+- [ ] Hours-based time range (6, 12, 24, etc.)
+- [ ] Correct date calculations for both days and hours
 - [ ] Priority scoring (HIGH/MEDIUM/LOW)
 - [ ] Traditional content analysis
 

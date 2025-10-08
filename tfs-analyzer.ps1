@@ -6,7 +6,8 @@ param(
     [Parameter(Position = 0)]
     [string]$Action = "analyze",
     [Parameter(Position = 1)]
-    [int]$Days = 1,
+    [int]$TimeValue = 1,
+    [switch]$Hours = $false,
     [switch]$Html = $false,
     [switch]$Email = $false,
     [switch]$Browser = $false,
@@ -15,6 +16,7 @@ param(
     [switch]$NoAI = $false,
     [switch]$Details = $false,
     # Backward compatibility aliases
+    [int]$Days = 0,  # For backward compatibility
     [switch]$SaveHtml = $false,
     [switch]$SendEmail = $false,
     [switch]$ShowInBrowser = $false,
@@ -1750,8 +1752,9 @@ function Send-Office365Email {
 
 function Analyze-Tickets {
     param(
-        [hashtable]$Config, 
-        [int]$Days,
+        [hashtable]$Config,
+        [int]$TimeValue,
+        [bool]$UseHours = $false,
         [switch]$Html,
         [switch]$Browser,
         [switch]$Text,
@@ -1806,8 +1809,12 @@ function Analyze-Tickets {
     $ProjectName = $Config.PROJECT_NAME
     $TfsUrl = $Config.TFS_URL
     $UserDisplayName = $Config.USER_DISPLAY_NAME
-    
-    Write-ColorOutput "Analyzing TFS tickets for the last $Days day(s)..." "Info"
+
+    # Calculate the time period
+    $timeUnit = if ($UseHours) { "hour(s)" } else { "day(s)" }
+    $timeDescription = "$TimeValue $timeUnit"
+
+    Write-ColorOutput "Analyzing TFS tickets for the last $timeDescription..." "Info"
     Write-Host "Project: $ProjectName"
     Write-Host "User: $UserDisplayName"
     
@@ -1835,15 +1842,24 @@ function Analyze-Tickets {
     }
     
     Write-Host ""
-    
+
+    # Calculate the start date for the query
+    if ($UseHours) {
+        $startDate = (Get-Date).AddHours(-$TimeValue).ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $queryTimeFilter = "[System.ChangedDate] >= '$startDate'"
+    } else {
+        # Use TFS-native @Today - Days syntax for better performance
+        $queryTimeFilter = "[System.ChangedDate] >= @Today - $TimeValue"
+    }
+
     # Query 1: Assigned tickets - Use basic fields to avoid compatibility issues
     $AssignedQuery = @{
-        query = "SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.ChangedDate], [System.Description], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = '$ProjectName' AND [System.AssignedTo] = @Me AND [System.ChangedDate] >= @Today - $Days ORDER BY [System.ChangedDate] DESC"
+        query = "SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.ChangedDate], [System.Description], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = '$ProjectName' AND [System.AssignedTo] = @Me AND $queryTimeFilter ORDER BY [System.ChangedDate] DESC"
     } | ConvertTo-Json
-    
+
     # Query 2: @Mentioned tickets - Use basic fields to avoid compatibility issues
     $mentionQueryString = @"
-SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.ChangedDate], [System.Description], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = '$ProjectName' AND [System.History] CONTAINS WORDS '@$UserDisplayName' AND [System.ChangedDate] >= @Today - $Days ORDER BY [System.ChangedDate] DESC
+SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.ChangedDate], [System.Description], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = '$ProjectName' AND [System.History] CONTAINS WORDS '@$UserDisplayName' AND $queryTimeFilter ORDER BY [System.ChangedDate] DESC
 "@
     $MentionQuery = @{
         query = $mentionQueryString
@@ -2299,6 +2315,11 @@ function Test-ClaudeConfiguration {
     }
 }
 
+# Handle backward compatibility for -Days parameter
+if ($Days -gt 0) {
+    $TimeValue = $Days
+}
+
 # Main logic
 switch ($Action.ToLower()) {
     'setup' {
@@ -2321,7 +2342,7 @@ switch ($Action.ToLower()) {
         try {
             $Headers = Get-Headers -Config $Config
             Write-ColorOutput "Authentication test successful!" "Success"
-            
+
             # Test Azure CLI if configured
             if ($Config.USE_AZURE_CLI -eq 'true') {
                 $azAuth = Test-AzureCliAuthentication
@@ -2331,7 +2352,7 @@ switch ($Action.ToLower()) {
                     Write-ColorOutput "Azure CLI authentication failed" "Warning"
                 }
             }
-            
+
             # Test Claude if available
             if ($Config.CLAUDE_AVAILABLE -eq 'true') {
                 $claudeAvailable = Test-ClaudeCodeAvailability
@@ -2341,23 +2362,23 @@ switch ($Action.ToLower()) {
                     Write-ColorOutput "Claude Code CLI not found" "Warning"
                 }
             }
-            
+
         } catch {
             Write-ColorOutput "Authentication test failed: $($_.Exception.Message)" "Error"
         }
     }
     { $_ -match '^\d+$' } {
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -Days ([int]$Action) -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
+        Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
     }
     'analyze' {
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -Days $Days -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
+        Analyze-Tickets -Config $Config -TimeValue $TimeValue -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
     }
     default {
         if ($Action -match '^\d+$') {
             $Config = Load-Configuration
-            Analyze-Tickets -Config $Config -Days ([int]$Action) -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
+            Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
         } else {
             Write-ColorOutput "Invalid option: $Action" "Error"
             Write-Host "Use 'help' for usage information."

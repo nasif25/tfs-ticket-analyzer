@@ -27,15 +27,15 @@ print_usage() {
     cat << EOF
 TFS Ticket Analyzer - Cross-platform bash version with Claude AI support
 
-Usage: $0 [DAYS] [OPTIONS]
+Usage: $0 [TIMEVALUE] [OPTIONS]
 
 Arguments:
-    DAYS                Number of days to analyze (default: 1)
+    TIMEVALUE           Number of days or hours to analyze (default: 1 day)
 
 Setup Commands:
     setup               Run initial configuration
     setup-claude        Setup Claude AI integration
-    setup-output        Configure default output method  
+    setup-output        Configure default output method
     test-auth           Test TFS authentication
     test-claude         Test Claude AI configuration with guided setup
     setup-cron [TIME]   Setup daily cron job (default time: 08:00)
@@ -48,6 +48,7 @@ Simplified Options:
     -c, --claude        Use Claude AI for enhanced analysis
     --no-ai             Disable Claude AI (traditional analysis only)
     -d, --details       Show detailed processing information
+    --hours             Interpret TIMEVALUE as hours instead of days
     --help              Show this help message
 
 Traditional Options:
@@ -60,6 +61,8 @@ Examples:
     $0 setup-claude                    # Setup Claude AI integration
     $0 1 -b                           # Analyze 1 day, show in browser
     $0 7 -h                           # Analyze 1 week, save HTML
+    $0 12 --hours -b                  # Analyze last 12 hours, show in browser
+    $0 6 --hours -c -b                # Analyze last 6 hours with Claude AI
     $0 1 -c -b                        # Analyze with Claude AI, show in browser
     $0 setup-cron 09:00               # Setup daily cron at 9 AM
     $0 test-auth                      # Test connection
@@ -571,15 +574,22 @@ test_auth() {
 }
 
 get_work_items() {
-    local days="$1"
-    
+    local timevalue="$1"
+    local use_hours="$2"
+
     if ! load_config; then
         log_message "ERROR" "No configuration found. Run 'setup' first."
         return 1
     fi
-    
+
     local start_date
-    start_date=$(date -d "$days days ago" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -v-"${days}d" +%Y-%m-%dT%H:%M:%S)
+    if [[ "$use_hours" == "true" ]]; then
+        # Calculate hours ago
+        start_date=$(date -d "$timevalue hours ago" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -v-"${timevalue}H" +%Y-%m-%dT%H:%M:%S)
+    else
+        # Calculate days ago
+        start_date=$(date -d "$timevalue days ago" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -v-"${timevalue}d" +%Y-%m-%dT%H:%M:%S)
+    fi
     
     # Build WIQL query
     local wiql_query="SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo], [System.Priority], [Microsoft.VSTS.Common.Severity], [System.Description], [System.Tags], [System.CreatedDate], [System.ChangedDate] FROM workitems WHERE [System.TeamProject] = '$PROJECT_NAME' AND ([System.AssignedTo] = '$USER_DISPLAY_NAME' OR [System.History] CONTAINS '@$USER_DISPLAY_NAME') AND [System.ChangedDate] >= '$start_date' ORDER BY [System.Priority] ASC, [System.ChangedDate] DESC"
@@ -1362,13 +1372,14 @@ setup_cron_job() {
 }
 
 main() {
-    local days=1
+    local timevalue=1
+    local use_hours="false"
     local output_method=""
     local use_windows_auth="false"
     local verbose="false"
     local use_claude_ai="false"
     local disable_ai="false"
-    
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1419,6 +1430,9 @@ main() {
             -d|--details)
                 verbose="true"
                 ;;
+            --hours)
+                use_hours="true"
+                ;;
             # Traditional parameters for backward compatibility
             --output)
                 output_method="$2"
@@ -1435,7 +1449,7 @@ main() {
                 exit 0
                 ;;
             [0-9]*)
-                days="$1"
+                timevalue="$1"
                 ;;
             *)
                 log_message "ERROR" "Unknown argument: $1"
@@ -1490,15 +1504,27 @@ main() {
         fi
     fi
     
+    # Calculate time description
+    local time_unit time_description days
+    if [[ "$use_hours" == "true" ]]; then
+        time_unit="hours"
+        # For display purposes in existing functions, approximate days
+        days="$timevalue hours"
+    else
+        time_unit="days"
+        days="$timevalue"
+    fi
+    time_description="$timevalue $time_unit"
+
     if [[ "$verbose" == "true" ]]; then
-        log_message "INFO" "Analyzing last $days days..."
+        log_message "INFO" "Analyzing last $time_description..."
         log_message "INFO" "Output method: $output_method"
         log_message "INFO" "Claude AI: $([[ \"$use_claude_ai\" == \"true\" ]] && echo \"enabled\" || echo \"disabled\")"
     fi
-    
+
     # Get work items
     local work_items_file
-    work_items_file=$(get_work_items "$days")
+    work_items_file=$(get_work_items "$timevalue" "$use_hours")
     
     if [[ -z "$work_items_file" ]]; then
         exit 1
