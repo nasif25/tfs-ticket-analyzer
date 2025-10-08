@@ -42,14 +42,39 @@ function Get-TFSConfiguration {
     Write-Host "  • https://tfs.yourcompany.com/tfs/YourCollection" -ForegroundColor Gray
     Write-Host ""
 
-    $tfsUrl = Read-Host "Enter your TFS/Azure DevOps URL"
+    do {
+        $tfsUrl = Read-Host "Enter your TFS/Azure DevOps URL"
+        $tfsUrl = $tfsUrl.Trim()
+
+        if ([string]::IsNullOrWhiteSpace($tfsUrl)) {
+            Write-Host "URL cannot be empty. Please try again." -ForegroundColor Red
+            continue
+        }
+
+        if ($tfsUrl -notmatch '^https?://') {
+            Write-Host "URL must start with http:// or https://. Please try again." -ForegroundColor Red
+            continue
+        }
+
+        break
+    } while ($true)
 
     Write-Host ""
     Write-Host "What project do you want to analyze?" -ForegroundColor White
     Write-Host "(This is the name of your team project)" -ForegroundColor Gray
     Write-Host ""
 
-    $projectName = Read-Host "Enter your project name"
+    do {
+        $projectName = Read-Host "Enter your project name"
+        $projectName = $projectName.Trim()
+
+        if ([string]::IsNullOrWhiteSpace($projectName)) {
+            Write-Host "Project name cannot be empty. Please try again." -ForegroundColor Red
+            continue
+        }
+
+        break
+    } while ($true)
 
     return @{
         TfsUrl = $tfsUrl
@@ -177,7 +202,18 @@ function Get-UserDisplayName {
     Write-Host "Examples: 'John Smith', 'Jane Doe'" -ForegroundColor Yellow
     Write-Host ""
 
-    $displayName = Read-Host "Enter your display name"
+    do {
+        $displayName = Read-Host "Enter your display name"
+        $displayName = $displayName.Trim()
+
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+            Write-Host "Display name cannot be empty. Please try again." -ForegroundColor Red
+            continue
+        }
+
+        break
+    } while ($true)
+
     return $displayName
 }
 
@@ -234,10 +270,33 @@ function Get-AutomationPreference {
     Write-Host "Enter time in 24-hour format (e.g., 08:00 for 8 AM, 14:30 for 2:30 PM)" -ForegroundColor Gray
     Write-Host ""
 
-    $time = Read-Host "Enter time (default: 08:00)"
-    if ([string]::IsNullOrWhiteSpace($time)) {
-        $time = "08:00"
-    }
+    do {
+        $time = Read-Host "Enter time (default: 08:00)"
+        if ([string]::IsNullOrWhiteSpace($time)) {
+            $time = "08:00"
+            break
+        }
+
+        # Validate time format HH:MM
+        if ($time -notmatch '^\d{1,2}:\d{2}$') {
+            Write-Host "Invalid time format. Please use HH:MM format (e.g., 08:00)" -ForegroundColor Red
+            continue
+        }
+
+        # Validate hour and minute ranges
+        $parts = $time.Split(':')
+        $hour = [int]$parts[0]
+        $minute = [int]$parts[1]
+
+        if ($hour -lt 0 -or $hour -gt 23 -or $minute -lt 0 -or $minute -gt 59) {
+            Write-Host "Invalid time. Hour must be 0-23, minute must be 0-59." -ForegroundColor Red
+            continue
+        }
+
+        # Normalize format to HH:MM
+        $time = "{0:D2}:{1:D2}" -f $hour, $minute
+        break
+    } while ($true)
 
     return $time
 }

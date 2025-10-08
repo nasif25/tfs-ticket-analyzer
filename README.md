@@ -12,46 +12,44 @@ A comprehensive **cross-platform** tool that analyzes your TFS/Azure DevOps tick
 .\tfs-analyzer.ps1 7 -Text          # Week summary to text file
 .\tfs-analyzer.ps1 12 -Hours -Browser # Last 12 hours in browser
 .\tfs-analyzer.ps1 6 -Hours -Claude -Html # Last 6 hours with AI to HTML
-.\tfs-analyzer.ps1 1 -NoAI -Details # Traditional analysis with debug
+.\tfs-analyzer.ps1 1 -NoAI -Details # AI disabled with debug
 ```
 
 **Linux/Mac Bash:**
 ```bash
 # Basic usage with simplified parameters
-./tfs-analyzer.sh 1 -b               # Today's tickets in browser
-./tfs-analyzer.sh 3 -c -h            # 3 days AI analysis to HTML
-./tfs-analyzer.sh 7 -t               # Week summary to text file
-./tfs-analyzer.sh 12 --hours -b      # Last 12 hours in browser
-./tfs-analyzer.sh 6 --hours -c -h    # Last 6 hours with AI to HTML
-./tfs-analyzer.sh 1 --no-ai -d       # Traditional analysis with debug
+./tfs-analyzer.sh 1 --browser                    # Today's tickets in browser
+./tfs-analyzer.sh 3 --claude --html              # 3 days AI analysis to HTML
+./tfs-analyzer.sh 7 --text                       # Week summary to text file
+./tfs-analyzer.sh 12 --hours --browser           # Last 12 hours in browser
+./tfs-analyzer.sh 6 --hours --claude --html      # Last 6 hours with AI to HTML
+./tfs-analyzer.sh 1 --no-ai -d                   # AI disabled with debug
 ```
 
 **Python (All Platforms):**
 ```bash
 # Basic usage with simplified parameters
-python tfs-analyzer.py 1 -b          # Today's tickets in browser
-python tfs-analyzer.py 3 -c -h       # 3 days AI analysis to HTML
-python tfs-analyzer.py 7 -t          # Week summary to text file
-python tfs-analyzer.py 12 --hours -b # Last 12 hours in browser
-python tfs-analyzer.py 6 --hours -c -h # Last 6 hours with AI to HTML
-python tfs-analyzer.py 1 --no-ai -d  # Traditional analysis with debug
+python tfs-analyzer.py 1 --browser               # Today's tickets in browser
+python tfs-analyzer.py 3 --claude --html         # 3 days AI analysis to HTML
+python tfs-analyzer.py 7 --text                  # Week summary to text file
+python tfs-analyzer.py 12 --hours --browser      # Last 12 hours in browser
+python tfs-analyzer.py 6 --hours --claude --html # Last 6 hours with AI to HTML
+python tfs-analyzer.py 1 --no-ai -d              # AI disabled with debug
 ```
 
 **Simplified Parameters:**
 
-| Function | PowerShell | Bash/Python | Traditional |
-|----------|------------|-------------|-------------|
-| Force AI analysis | `-Claude` | `-c, --claude` | `-UseClaude` |
-| Traditional only | `-NoAI` | `--no-ai` | `-NoClaude` |
-| Open in browser | `-Browser` | `-b, --browser` | `-ShowInBrowser` |
-| Save HTML file | `-Html` | `-h, --html` | `-SaveHtml` |
-| Save text file | `-Text` | `-t, --text` | `-SaveText` |
-| Send via email | `-Email` | `-e, --email` | `-SendEmail` |
-| Detailed output | `-Details` | `-d, --details` | `-VerboseOutput` |
-| Time to analyze | `[number]` | `[number]` | Days (default) or Hours with `-Hours` |
-| Use hours instead of days | `-Hours` | `--hours` | N/A |
-
-> **📝 Note for Existing Users:** The old parameter names still work for backward compatibility, but the new simplified names are recommended for easier use.
+| Function | PowerShell | Bash | Python |
+|----------|------------|------|--------|
+| Force AI analysis | `-Claude` | `--claude` | `--claude` |
+| AI disabled | `-NoAI` | `--no-ai` | `--no-ai` |
+| Open in browser | `-Browser` | `--browser` | `--browser` |
+| Save HTML file | `-Html` | `--html` | `--html` |
+| Save text file | `-Text` | `--text` | `--text` |
+| Send via email | `-Email` | `--email` | `--email` |
+| Detailed output | `-Details` | `-d, --details` | `-d, --details` |
+| Time to analyze | `[number]` | `[number]` | `[number]` |
+| Use hours instead of days | `-Hours` | `--hours` | `--hours` |
 
 ## 🖥️ Platform Support
 
@@ -147,10 +145,10 @@ You'll be prompted for:
 # AI-enhanced analysis (last 24 hours) - show in browser
 .\tfs-analyzer.ps1 1 -Claude -Browser
 
-# Traditional analysis (last 3 days) - save HTML file
+# AI disabled (last 3 days) - save HTML file
 .\tfs-analyzer.ps1 3 -NoAI -Html
 
-# Use configured default (AI or traditional) - save text summary
+# Use configured default (AI or without) - save text summary
 .\tfs-analyzer.ps1 7 -Text
 
 # Verbose mode with detailed output
@@ -159,30 +157,20 @@ You'll be prompted for:
 
 **Linux/Mac (Bash):**
 ```bash
-# AI-enhanced analysis with simplified parameters
-./tfs-analyzer.sh 1 -c -b            # AI analysis, show in browser
-./tfs-analyzer.sh 3 --no-ai -h       # Traditional analysis, HTML file
-./tfs-analyzer.sh 7 -t               # Default mode, text summary
-./tfs-analyzer.sh 1 -d -c            # AI analysis with detailed output
-
-# Traditional parameters (still supported)
-./tfs-analyzer.sh 1 --output browser
-./tfs-analyzer.sh 3 --output html
-./tfs-analyzer.sh 7 --output text
+# AI-enhanced analysis
+./tfs-analyzer.sh 1 --claude --browser       # AI analysis, show in browser
+./tfs-analyzer.sh 3 --no-ai --html           # AI disabled, HTML file
+./tfs-analyzer.sh 7 --text                   # Default mode, text summary
+./tfs-analyzer.sh 1 -d --claude              # AI analysis with detailed output
 ```
 
 **Python (Any Platform):**
-```bash  
-# AI-enhanced analysis with simplified parameters
-python tfs-analyzer.py 1 -c -b       # AI analysis, show in browser
-python tfs-analyzer.py 3 --no-ai -h  # Traditional analysis, HTML file
-python tfs-analyzer.py 7 -t          # Default mode, text summary
-python tfs-analyzer.py 1 -d -c       # AI analysis with detailed output
-
-# Traditional parameters (still supported)
-python tfs-analyzer.py 1 --output browser
-python tfs-analyzer.py 3 --output html  
-python tfs-analyzer.py 7 --output text
+```bash
+# AI-enhanced analysis
+python tfs-analyzer.py 1 --claude --browser  # AI analysis, show in browser
+python tfs-analyzer.py 3 --no-ai --html      # AI disabled, HTML file
+python tfs-analyzer.py 7 --text              # Default mode, text summary
+python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 ```
 
 ## 🔄 Automation Setup
@@ -220,10 +208,11 @@ python tfs-analyzer.py 7 --output text
 
 **Manual Setup:**
 ```bash
-# Daily at 8:00 AM with browser output
-./tfs-scheduler.sh --time 08:00 --output browser
+# Interactive setup (recommended)
+./tfs-scheduler.sh
 
-# Daily at 9:30 AM with HTML file output
+# Or specify time and output
+./tfs-scheduler.sh --time 08:00 --output browser
 ./tfs-scheduler.sh --time 09:30 --output html
 
 # Remove automation
@@ -622,7 +611,7 @@ crontab -e
 - ✅ **Better Authentication Feedback**: Clear messages for Azure CLI vs PAT authentication failures
 
 ### **Previous Updates**
-- ✅ **Simplified Parameters**: New short flags (`-b`, `-h`, `-t`, `-e`, `-c`, `-d`) for easier usage
+- ✅ **Simplified Parameters**: Clean long-form flags for all operations (debug `-d` is the only short flag)
 - ✅ **Cross-Platform Claude AI**: Full Claude integration on Windows, Linux/Mac, and Python
 - ✅ **Enhanced Authentication**: Azure CLI integration with PAT fallback
 - ✅ **Smart Automation**: Flexible scheduling with startup and daily triggers
@@ -758,22 +747,22 @@ az account show
 ./tfs-analyzer.sh test-auth         # Test authentication
 
 # Analysis modes
-./tfs-analyzer.sh 1                 # Use configured default
-./tfs-analyzer.sh 3 -c              # Force AI analysis
-./tfs-analyzer.sh 7 --no-ai         # Traditional analysis only
-./tfs-analyzer.sh 1 -d              # Detailed debug output
+./tfs-analyzer.sh 1                     # Use configured default
+./tfs-analyzer.sh 3 --claude            # Force AI analysis
+./tfs-analyzer.sh 7 --no-ai             # Traditional analysis only
+./tfs-analyzer.sh 1 -d                  # Detailed debug output
 
 # Output options
-./tfs-analyzer.sh 1 -b              # Open in browser
-./tfs-analyzer.sh 3 -h              # Save HTML file
-./tfs-analyzer.sh 7 -t              # Save text file
-./tfs-analyzer.sh 1 -e              # Send via email
+./tfs-analyzer.sh 1 --browser           # Open in browser
+./tfs-analyzer.sh 3 --html              # Save HTML file
+./tfs-analyzer.sh 7 --text              # Save text file
+./tfs-analyzer.sh 1 --email             # Send via email
 
-# Combined options (mix and match)  
-./tfs-analyzer.sh 3 -c -h           # AI analysis + HTML output
-./tfs-analyzer.sh 1 -b -d           # Browser + debug info
-./tfs-analyzer.sh 7 --no-ai -t      # Traditional + text output
-./tfs-analyzer.sh 2 -c -b -d        # AI + browser + debug
+# Combined options (mix and match)
+./tfs-analyzer.sh 3 --claude --html     # AI analysis + HTML output
+./tfs-analyzer.sh 1 --browser -d        # Browser + debug info
+./tfs-analyzer.sh 7 --no-ai --text      # Traditional + text output
+./tfs-analyzer.sh 2 --claude --browser -d # AI + browser + debug
 ```
 
 **Python (All Platforms):**
@@ -784,22 +773,22 @@ python tfs-analyzer.py --setup-claude # Claude AI integration
 python tfs-analyzer.py --test-auth  # Test authentication
 
 # Analysis modes
-python tfs-analyzer.py 1            # Use configured default
-python tfs-analyzer.py 3 -c         # Force AI analysis
-python tfs-analyzer.py 7 --no-ai    # Traditional analysis only
-python tfs-analyzer.py 1 -d         # Detailed debug output
+python tfs-analyzer.py 1                # Use configured default
+python tfs-analyzer.py 3 --claude       # Force AI analysis
+python tfs-analyzer.py 7 --no-ai        # Traditional analysis only
+python tfs-analyzer.py 1 -d             # Detailed debug output
 
 # Output options
-python tfs-analyzer.py 1 -b         # Open in browser
-python tfs-analyzer.py 3 -h         # Save HTML file
-python tfs-analyzer.py 7 -t         # Save text file
-python tfs-analyzer.py 1 -e         # Send via email
+python tfs-analyzer.py 1 --browser      # Open in browser
+python tfs-analyzer.py 3 --html         # Save HTML file
+python tfs-analyzer.py 7 --text         # Save text file
+python tfs-analyzer.py 1 --email        # Send via email
 
 # Combined options (mix and match)
-python tfs-analyzer.py 3 -c -h      # AI analysis + HTML output
-python tfs-analyzer.py 1 -b -d      # Browser + debug info
-python tfs-analyzer.py 7 --no-ai -t # Traditional + text output
-python tfs-analyzer.py 2 -c -b -d   # AI + browser + debug
+python tfs-analyzer.py 3 --claude --html  # AI analysis + HTML output
+python tfs-analyzer.py 1 --browser -d     # Browser + debug info
+python tfs-analyzer.py 7 --no-ai --text   # AI disabled + text output
+python tfs-analyzer.py 2 --claude --browser -d # AI + browser + debug
 ```
 
 ---

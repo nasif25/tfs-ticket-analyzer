@@ -130,17 +130,28 @@ setup_daily_cron() {
     log_message "INFO" "Time: $time"
     log_message "INFO" "Output method: $output_method"
     
+    # Convert output method to appropriate flag
+    local output_flag=""
+    case "$output_method" in
+        browser) output_flag="--browser" ;;
+        html) output_flag="--html" ;;
+        text) output_flag="--text" ;;
+        email) output_flag="--email" ;;
+        console) output_flag="" ;;
+        *) output_flag="--browser" ;;
+    esac
+
     # Create the cron entry
-    local cron_line="$minute $hour * * * $TFS_ANALYZER 1 --output $output_method # TFS Analyzer Daily"
+    local cron_line="$minute $hour * * * $TFS_ANALYZER 1 $output_flag # TFS Analyzer Daily"
     
     # Add to crontab
     (crontab -l 2>/dev/null | grep -v "# TFS Analyzer"; echo "$cron_line") | crontab -
     
     log_message "SUCCESS" "Daily cron job created!"
     echo -e "${WHITE}  Schedule: Every day at $time${NC}"
-    echo -e "${WHITE}  Command: $TFS_ANALYZER 1 --output $output_method${NC}"
+    echo -e "${WHITE}  Command: $TFS_ANALYZER 1 $output_flag${NC}"
     echo
-    log_message "INFO" "To test immediately: $TFS_ANALYZER 1 --output $output_method"
+    log_message "INFO" "To test immediately: $TFS_ANALYZER 1 $output_flag"
 }
 
 setup_startup_cron() {

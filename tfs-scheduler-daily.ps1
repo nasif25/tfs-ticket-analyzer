@@ -24,14 +24,14 @@ if ($Remove) {
 # Auto-detect script path if not provided
 if ([string]::IsNullOrEmpty($ScriptPath)) {
     $ScriptPath = Join-Path $PSScriptRoot "tfs-analyzer.ps1"
-    if (-not (Test-Path $ScriptPath)) {
-        $ScriptPath = "C:\tipgit\TIP\tfs-analyzer.ps1"
-    }
 }
 
 if (-not (Test-Path $ScriptPath)) {
-    Write-Host "Error: Cannot find tfs-analyzer.ps1" -ForegroundColor Red
-    Write-Host "Please specify the full path: .\tfs-scheduler-daily.ps1 -ScriptPath 'C:\path\to\script.ps1'" -ForegroundColor Yellow
+    Write-Host "Error: Cannot find tfs-analyzer.ps1 at: $ScriptPath" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Please specify the full path using -ScriptPath parameter:" -ForegroundColor Yellow
+    Write-Host "  .\tfs-scheduler-daily.ps1 -ScriptPath 'C:\path\to\tfs-analyzer.ps1'" -ForegroundColor White
+    Write-Host ""
     exit 1
 }
 

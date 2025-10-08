@@ -14,16 +14,7 @@ param(
     [switch]$Text = $false,
     [switch]$Claude = $false,
     [switch]$NoAI = $false,
-    [switch]$Details = $false,
-    # Backward compatibility aliases
-    [int]$Days = 0,  # For backward compatibility
-    [switch]$SaveHtml = $false,
-    [switch]$SendEmail = $false,
-    [switch]$ShowInBrowser = $false,
-    [switch]$SaveText = $false,
-    [switch]$UseClaude = $false,
-    [switch]$NoClaude = $false,
-    [switch]$VerboseOutput = $false
+    [switch]$Details = $false
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -1760,33 +1751,19 @@ function Analyze-Tickets {
         [switch]$Text,
         [switch]$Email,
         [switch]$Claude,
-        [switch]$UseClaude,
         [switch]$Details,
-        [switch]$VerboseOutput,
-        [switch]$SaveHtml,
-        [switch]$ShowInBrowser,
-        [switch]$SaveText,
-        [switch]$SendEmail,
-        [switch]$NoAI,
-        [switch]$NoClaude
+        [switch]$NoAI
     )
-    
-    # Handle backward compatibility - merge old and new parameter names
-    $SaveHtml = $Html -or $SaveHtml
-    $ShowInBrowser = $Browser -or $ShowInBrowser
-    $SaveText = $Text -or $SaveText
-    $SendEmail = $Email -or $SendEmail
-    $Details = $Details -or $VerboseOutput
-    
+
     # Set script-level variable for debug output
     $script:Details = $Details
-    
-    # Determine Claude usage (simplified)
+
+    # Determine Claude usage
     $shouldUseClaude = $false
-    if ($Claude -or $UseClaude) {
+    if ($Claude) {
         $shouldUseClaude = $true
         Write-DebugOutput "Claude usage requested via parameter"
-    } elseif ($NoAI -or $NoClaude) {
+    } elseif ($NoAI) {
         $shouldUseClaude = $false
         Write-DebugOutput "Claude usage disabled via parameter"
     } elseif ($Config.USE_CLAUDE_BY_DEFAULT -eq 'true') {
@@ -1828,16 +1805,16 @@ function Analyze-Tickets {
     Write-Host "Authentication: $authMethod"
     
     # Determine output method from parameters or config
-    if ($SaveHtml -or $ShowInBrowser -or $SaveText -or $SendEmail) {
+    if ($Html -or $Browser -or $Text -or $Email) {
         # Use parameter switches
     } elseif ($Config.OUTPUT_METHOD) {
         # Use configured method
         switch ($Config.OUTPUT_METHOD) {
-            "HTML" { $SaveHtml = $true }
-            "EMAIL" { $SendEmail = $true }
-            "BOTH" { $SaveHtml = $true; $SendEmail = $true }
-            "TEXT" { $SaveText = $true }
-            "BROWSER" { $SaveHtml = $true; $ShowInBrowser = $true }
+            "HTML" { $Html = $true }
+            "EMAIL" { $Email = $true }
+            "BOTH" { $Html = $true; $Email = $true }
+            "TEXT" { $Text = $true }
+            "BROWSER" { $Html = $true; $Browser = $true }
         }
     }
     
@@ -2047,16 +2024,16 @@ SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Syst
         Write-Host ""
         
         # Generate outputs based on configuration
-        Write-Host "DEBUG: Output parameters: SaveHtml=$SaveHtml, ShowInBrowser=$ShowInBrowser, Browser=$Browser" -ForegroundColor Yellow
-        if ($SaveHtml -or $ShowInBrowser) {
-            Save-HtmlSummary -Config $Config -AllTickets $AllTickets -Days $Days -TfsUrl $TfsUrl -ProjectName $ProjectName -ShowInBrowser $ShowInBrowser
+        Write-Host "DEBUG: Output parameters: Html=$Html, Browser=$Browser" -ForegroundColor Yellow
+        if ($Html -or $Browser) {
+            Save-HtmlSummary -Config $Config -AllTickets $AllTickets -Days $Days -TfsUrl $TfsUrl -ProjectName $ProjectName -ShowInBrowser $Browser
         }
-        
-        if ($SaveText) {
+
+        if ($Text) {
             Save-TextSummary -Config $Config -AllTickets $AllTickets -Days $Days
         }
-        
-        if ($SendEmail -and $Config.SMTP_SERVER) {
+
+        if ($Email -and $Config.SMTP_SERVER) {
             # Generate HTML content for email
             Save-HtmlSummary -Config $Config -AllTickets $AllTickets -Days $Days -TfsUrl $TfsUrl -ProjectName $ProjectName
             $HtmlPath = if ($Config.HTML_PATH) { $Config.HTML_PATH } else { "$env:USERPROFILE\Documents\TFS-Daily-Summary.html" }
@@ -2369,16 +2346,16 @@ switch ($Action.ToLower()) {
     }
     { $_ -match '^\d+$' } {
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
+        Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details
     }
     'analyze' {
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -TimeValue $TimeValue -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
+        Analyze-Tickets -Config $Config -TimeValue $TimeValue -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details
     }
     default {
         if ($Action -match '^\d+$') {
             $Config = Load-Configuration
-            Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details -SaveHtml:$SaveHtml -ShowInBrowser:$ShowInBrowser -SaveText:$SaveText -SendEmail:$SendEmail -UseClaude:$UseClaude -NoClaude:$NoClaude -VerboseOutput:$VerboseOutput
+            Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details
         } else {
             Write-ColorOutput "Invalid option: $Action" "Error"
             Write-Host "Use 'help' for usage information."

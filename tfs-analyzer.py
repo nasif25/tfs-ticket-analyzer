@@ -1370,10 +1370,19 @@ def setup_cron_job(output_method: str = 'console', time_str: str = '08:00'):
     if sys.platform == 'win32':
         print("[ERROR] Cron jobs not supported on Windows. Use Task Scheduler instead.")
         return
-    
+
+    # Convert output method to appropriate flag
+    output_flag = {
+        'browser': '--browser',
+        'html': '--html',
+        'text': '--text',
+        'email': '--email',
+        'console': ''
+    }.get(output_method, '--browser')
+
     script_path = Path(__file__).absolute()
-    cron_command = f'{time_str.split(":")[1]} {time_str.split(":")[0]} * * * /usr/bin/python3 "{script_path}" 1 --output {output_method}'
-    
+    cron_command = f'{time_str.split(":")[1]} {time_str.split(":")[0]} * * * /usr/bin/python3 "{script_path}" 1 {output_flag}'.strip()
+
     print(f"Add this line to your crontab (crontab -e):")
     print(f"{cron_command}")
     print(f"\nThis will run daily at {time_str}")
@@ -1392,21 +1401,21 @@ def main():
     # Time unit parameter
     parser.add_argument('--hours', action='store_true', help='Interpret timevalue as hours instead of days')
 
-    # Simplified parameters
-    parser.add_argument('-b', '--browser', action='store_true', help='Open results in browser')
-    parser.add_argument('-H', '--html', action='store_true', help='Save as HTML file')
-    parser.add_argument('-t', '--text', action='store_true', help='Save as text file')
-    parser.add_argument('-e', '--email', action='store_true', help='Send via email')
-    parser.add_argument('-c', '--claude', action='store_true', help='Use Claude AI for enhanced analysis')
+    # Output parameters
+    parser.add_argument('--browser', action='store_true', help='Open results in browser')
+    parser.add_argument('--html', action='store_true', help='Save as HTML file')
+    parser.add_argument('--text', action='store_true', help='Save as text file')
+    parser.add_argument('--email', action='store_true', help='Send via email')
+
+    # Analysis parameters
+    parser.add_argument('--claude', action='store_true', help='Use Claude AI for enhanced analysis')
     parser.add_argument('--no-ai', action='store_true', help='Disable Claude AI (traditional analysis only)')
     parser.add_argument('-d', '--details', action='store_true', help='Show detailed processing information')
 
-    # Traditional parameters for backward compatibility
-    parser.add_argument('--output', choices=['browser', 'html', 'text', 'console', 'email'], help='Output method')
+    # Additional options
     parser.add_argument('--windows-auth', action='store_true', help='Use Windows authentication')
     parser.add_argument('--setup-cron', action='store_true', help='Setup daily cron job (Linux/Mac)')
     parser.add_argument('--cron-time', default='08:00', help='Cron job time (HH:MM format)')
-    parser.add_argument('--verbose', action='store_true', help='Verbose output (same as --details)')
     parser.add_argument('--version', action='version', version='TFS Analyzer 2.2.0')
     
     args = parser.parse_args()
@@ -1438,10 +1447,10 @@ def main():
         return
         
     if args.setup_cron:
-        setup_cron_job(args.output or 'console', args.cron_time)
+        setup_cron_job('console', args.cron_time)
         return
     
-    # Determine output method from simplified parameters first
+    # Determine output method
     output_method = None
     if args.browser:
         output_method = 'browser'
@@ -1451,8 +1460,6 @@ def main():
         output_method = 'text'
     elif args.email:
         output_method = 'email'
-    elif args.output:
-        output_method = args.output
     else:
         output_method = analyzer.config.get('default_output', 'console')
     
@@ -1460,14 +1467,14 @@ def main():
     use_claude = args.claude
     if args.claude:
         # Verify Claude setup when explicitly requested
-        print("Testing Verifying Claude AI configuration...")
+        print("Verifying Claude AI configuration...")
         if analyzer.test_claude_configuration():
             print("[OK] Claude AI verification passed - using AI analysis")
             use_claude = True
         else:
             print("[ERROR] Claude AI verification failed - falling back to traditional analysis")
             print()
-            print("Troubleshooting Tips  Quick Fixes:")
+            print("Quick Fixes:")
             print("- Run: python tfs-analyzer.py --setup-claude")
             print("- Check: az login --allow-no-subscriptions")
             print("- Verify: Claude Code installation")
@@ -1505,12 +1512,12 @@ def main():
             use_claude = False
     
     # Verbose output
-    verbose = args.verbose or args.details
+    verbose = args.details
     time_unit = "hours" if args.hours else "days"
     if verbose:
-        print(f"Testing Analyzing last {args.timevalue} {time_unit}...")
-        print(f"Default Output Method Output method: {output_method}")
-        print(f"Claude AI Integration Setup Claude AI: {'enabled' if use_claude else 'disabled'}")
+        print(f"Analyzing last {args.timevalue} {time_unit}...")
+        print(f"Output method: {output_method}")
+        print(f"Claude AI: {'enabled' if use_claude else 'disabled'}")
 
     # Get and analyze work items
     work_items = analyzer.get_work_items(args.timevalue, args.hours)

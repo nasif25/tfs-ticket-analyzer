@@ -40,32 +40,28 @@ Setup Commands:
     test-claude         Test Claude AI configuration with guided setup
     setup-cron [TIME]   Setup daily cron job (default time: 08:00)
 
-Simplified Options:
-    -b, --browser       Open results in browser (same as --output browser)
-    -h, --html          Save as HTML file (same as --output html)
-    -t, --text          Save as text file (same as --output text)
-    -e, --email         Send via email (same as --output email)
-    -c, --claude        Use Claude AI for enhanced analysis
+Options:
+    --browser           Open results in browser
+    --html              Save as HTML file
+    --text              Save as text file
+    --email             Send via email
+    --claude            Use Claude AI for enhanced analysis
     --no-ai             Disable Claude AI (traditional analysis only)
     -d, --details       Show detailed processing information
     --hours             Interpret TIMEVALUE as hours instead of days
+    --windows-auth      Use Windows/Kerberos authentication
     --help              Show this help message
 
-Traditional Options:
-    --output METHOD     Output method: browser|html|text|console|email
-    --windows-auth      Use Windows/Kerberos authentication
-    --verbose           Show detailed processing information (same as --details)
-
 Examples:
-    $0 setup                           # Initial setup
-    $0 setup-claude                    # Setup Claude AI integration
-    $0 1 -b                           # Analyze 1 day, show in browser
-    $0 7 -h                           # Analyze 1 week, save HTML
-    $0 12 --hours -b                  # Analyze last 12 hours, show in browser
-    $0 6 --hours -c -b                # Analyze last 6 hours with Claude AI
-    $0 1 -c -b                        # Analyze with Claude AI, show in browser
-    $0 setup-cron 09:00               # Setup daily cron at 9 AM
-    $0 test-auth                      # Test connection
+    $0 setup                                # Initial setup
+    $0 setup-claude                         # Setup Claude AI integration
+    $0 1 --browser                          # Analyze 1 day, show in browser
+    $0 7 --html                             # Analyze 1 week, save HTML
+    $0 12 --hours --browser                 # Analyze last 12 hours, show in browser
+    $0 6 --hours --claude --browser         # Analyze last 6 hours with Claude AI
+    $0 1 --claude --browser                 # Analyze with Claude AI, show in browser
+    $0 setup-cron 09:00                     # Setup daily cron at 9 AM
+    $0 test-auth                            # Test connection
 
 EOF
 }
@@ -1352,8 +1348,19 @@ setup_cron_job() {
     local hour="${cron_time%:*}"
     local minute="${cron_time#*:}"
     local script_path="$(realpath "$0")"
-    
-    local cron_line="$minute $hour * * * $script_path 1 --output $output_method"
+
+    # Convert output method to appropriate flag
+    local output_flag=""
+    case "$output_method" in
+        browser) output_flag="-b" ;;
+        html) output_flag="-h" ;;
+        text) output_flag="-t" ;;
+        email) output_flag="-e" ;;
+        console) output_flag="" ;;
+        *) output_flag="-b" ;;
+    esac
+
+    local cron_line="$minute $hour * * * $script_path 1 $output_flag"
     
     echo
     log_message "INFO" "Add this line to your crontab (run 'crontab -e'):"
@@ -1408,20 +1415,20 @@ main() {
                 setup_cron_job "$cron_time" "${output_method:-console}"
                 exit 0
                 ;;
-            # Simplified parameters
-            -b|--browser)
+            # Parameters
+            --browser)
                 output_method="browser"
                 ;;
-            -h|--html)
+            --html)
                 output_method="html"
                 ;;
-            -t|--text)
+            --text)
                 output_method="text"
                 ;;
-            -e|--email)
+            --email)
                 output_method="email"
                 ;;
-            -c|--claude)
+            --claude)
                 use_claude_ai="true"
                 ;;
             --no-ai)
@@ -1433,16 +1440,8 @@ main() {
             --hours)
                 use_hours="true"
                 ;;
-            # Traditional parameters for backward compatibility
-            --output)
-                output_method="$2"
-                shift
-                ;;
             --windows-auth)
                 use_windows_auth="true"
-                ;;
-            --verbose)
-                verbose="true"
                 ;;
             --help)
                 print_usage
