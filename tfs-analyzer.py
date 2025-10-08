@@ -1449,7 +1449,18 @@ def main():
     if args.setup_cron:
         setup_cron_job('console', args.cron_time)
         return
-    
+
+    # Validate timevalue
+    if args.timevalue < 1:
+        print("[ERROR] Time value must be at least 1")
+        print(f"You provided: {args.timevalue}")
+        print("")
+        print("Examples:")
+        print("  python tfs-analyzer.py 1 --browser   # Analyze 1 day")
+        print("  python tfs-analyzer.py 7 --html      # Analyze 7 days")
+        print("  python tfs-analyzer.py 12 --hours --browser  # Analyze 12 hours")
+        return
+
     # Determine output method
     output_method = None
     if args.browser:

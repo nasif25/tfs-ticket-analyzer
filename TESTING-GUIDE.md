@@ -184,13 +184,13 @@ ls -l tfs-analyzer.sh tfs-scheduler.sh
 
 ```bash
 # Browser output
-./tfs-analyzer.sh 1 -b
+./tfs-analyzer.sh 1 --browser
 
 # HTML file
-./tfs-analyzer.sh 3 -h
+./tfs-analyzer.sh 3 --html
 
 # Text file
-./tfs-analyzer.sh 7 -t
+./tfs-analyzer.sh 7 --text
 
 # Console output
 ./tfs-analyzer.sh 1 --output console
@@ -206,9 +206,9 @@ ls -l tfs-analyzer.sh tfs-scheduler.sh
 
 ```bash
 # Hours-based analysis
-./tfs-analyzer.sh 12 --hours -b        # Last 12 hours in browser
-./tfs-analyzer.sh 6 --hours -c -h      # Last 6 hours with AI to HTML
-./tfs-analyzer.sh 24 --hours -t        # Last 24 hours to text file
+./tfs-analyzer.sh 12 --hours --browser        # Last 12 hours in browser
+./tfs-analyzer.sh 6 --hours --claude --html   # Last 6 hours with AI to HTML
+./tfs-analyzer.sh 24 --hours --text           # Last 24 hours to text file
 ```
 
 **Expected Result:**
@@ -230,9 +230,9 @@ python tfs-analyzer.py --setup
 python tfs-analyzer.py --test-auth
 
 # Run analysis
-python tfs-analyzer.py 1 -b
-python tfs-analyzer.py 3 -h
-python tfs-analyzer.py 7 -t
+python tfs-analyzer.py 1 --browser
+python tfs-analyzer.py 3 --html
+python tfs-analyzer.py 7 --text
 ```
 
 **Expected Result:**
@@ -267,12 +267,12 @@ crontab -l | grep tfs-analyzer
 # Bash version
 ./tfs-analyzer.sh setup-claude
 ./tfs-analyzer.sh test-claude
-./tfs-analyzer.sh 1 -c -b
+./tfs-analyzer.sh 1 --claude --browser
 
 # Python version
 python tfs-analyzer.py --setup-claude
 python tfs-analyzer.py --test-claude
-python tfs-analyzer.py 1 -c -b
+python tfs-analyzer.py 1 --claude --browser
 ```
 
 **Expected Result:**
@@ -309,13 +309,13 @@ ls -l *.sh
 # Setup (bash version)
 ./tfs-analyzer.sh setup
 ./tfs-analyzer.sh test-auth
-./tfs-analyzer.sh 1 -b
+./tfs-analyzer.sh 1 --browser
 
 # Setup (Python version - recommended for macOS)
 pip3 install -r requirements.txt
 python3 tfs-analyzer.py --setup
 python3 tfs-analyzer.py --test-auth
-python3 tfs-analyzer.py 1 -b
+python3 tfs-analyzer.py 1 --browser
 ```
 
 **Expected Result:**

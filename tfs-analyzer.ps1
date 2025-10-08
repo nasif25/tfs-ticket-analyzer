@@ -2345,10 +2345,36 @@ switch ($Action.ToLower()) {
         }
     }
     { $_ -match '^\d+$' } {
+        $TimeValueToUse = [int]$Action
+
+        # Validate timevalue
+        if ($TimeValueToUse -lt 1) {
+            Write-ColorOutput "[ERROR] Time value must be at least 1" "Error"
+            Write-Host "You provided: $TimeValueToUse"
+            Write-Host ""
+            Write-Host "Examples:"
+            Write-Host "  .\tfs-analyzer.ps1 1 -Browser   # Analyze 1 day"
+            Write-Host "  .\tfs-analyzer.ps1 7 -Html      # Analyze 7 days"
+            Write-Host "  .\tfs-analyzer.ps1 12 -Hours -Browser  # Analyze 12 hours"
+            exit 1
+        }
+
         $Config = Load-Configuration
-        Analyze-Tickets -Config $Config -TimeValue ([int]$Action) -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details
+        Analyze-Tickets -Config $Config -TimeValue $TimeValueToUse -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details
     }
     'analyze' {
+        # Validate timevalue
+        if ($TimeValue -lt 1) {
+            Write-ColorOutput "[ERROR] Time value must be at least 1" "Error"
+            Write-Host "You provided: $TimeValue"
+            Write-Host ""
+            Write-Host "Examples:"
+            Write-Host "  .\tfs-analyzer.ps1 1 -Browser   # Analyze 1 day"
+            Write-Host "  .\tfs-analyzer.ps1 7 -Html      # Analyze 7 days"
+            Write-Host "  .\tfs-analyzer.ps1 12 -Hours -Browser  # Analyze 12 hours"
+            exit 1
+        }
+
         $Config = Load-Configuration
         Analyze-Tickets -Config $Config -TimeValue $TimeValue -UseHours:$Hours -Html:$Html -Browser:$Browser -Text:$Text -Email:$Email -Claude:$Claude -NoAI:$NoAI -Details:$Details
     }

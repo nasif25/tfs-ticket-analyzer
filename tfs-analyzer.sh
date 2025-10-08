@@ -1352,12 +1352,12 @@ setup_cron_job() {
     # Convert output method to appropriate flag
     local output_flag=""
     case "$output_method" in
-        browser) output_flag="-b" ;;
-        html) output_flag="-h" ;;
-        text) output_flag="-t" ;;
-        email) output_flag="-e" ;;
+        browser) output_flag="--browser" ;;
+        html) output_flag="--html" ;;
+        text) output_flag="--text" ;;
+        email) output_flag="--email" ;;
         console) output_flag="" ;;
-        *) output_flag="-b" ;;
+        *) output_flag="--browser" ;;
     esac
 
     local cron_line="$minute $hour * * * $script_path 1 $output_flag"
@@ -1503,6 +1503,18 @@ main() {
         fi
     fi
     
+    # Validate timevalue
+    if [[ $timevalue -lt 1 ]]; then
+        log_message "ERROR" "Time value must be at least 1"
+        echo "You provided: $timevalue"
+        echo ""
+        echo "Examples:"
+        echo "  ./tfs-analyzer.sh 1 --browser           # Analyze 1 day"
+        echo "  ./tfs-analyzer.sh 7 --html              # Analyze 7 days"
+        echo "  ./tfs-analyzer.sh 12 --hours --browser  # Analyze 12 hours"
+        exit 1
+    fi
+
     # Calculate time description
     local time_unit time_description days
     if [[ "$use_hours" == "true" ]]; then
