@@ -1,4 +1,6 @@
-/.claude
+# .claude directory - track commands, exclude user settings
+.claude/settings.local.json
+.claude/commands/.tfs-tickets-config
 
 # Configuration files with sensitive data
 .config/
