@@ -12,8 +12,8 @@ $ScriptPath = "$PSScriptRoot\tfs-analyzer.ps1"
 
 if ($Remove) {
     try {
-        Unregister-ScheduledTask -TaskName "$TaskName-Startup" -Confirm:$false -ErrorAction SilentlyContinue
-        Unregister-ScheduledTask -TaskName "$TaskName-Daily" -Confirm:$false -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName "$TaskName-Startup" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        Unregister-ScheduledTask -TaskName "$TaskName-Daily" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
         
         # Remove wrapper script
         $WrapperPath = "$PSScriptRoot\tfs-startup-wrapper.ps1"
@@ -118,17 +118,18 @@ $DailyTask = New-ScheduledTask -Action $DailyAction -Trigger $DailyTrigger -Sett
 
 try {
     # Remove existing tasks first
-    Unregister-ScheduledTask -TaskName "$TaskName-Startup" -Confirm:$false -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName "$TaskName-Daily" -Confirm:$false -ErrorAction SilentlyContinue
-    
+    Unregister-ScheduledTask -TaskName "$TaskName-Startup" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    Unregister-ScheduledTask -TaskName "$TaskName-Daily" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+
     # Register both tasks
     Register-ScheduledTask -TaskName "$TaskName-Startup" -InputObject $StartupTask -Force | Out-Null
     Register-ScheduledTask -TaskName "$TaskName-Daily" -InputObject $DailyTask -Force | Out-Null
+
     Write-Host "`nTask created successfully!" -ForegroundColor Green
     Write-Host "The TFS Ticket Analyzer will now:" -ForegroundColor White
-    Write-Host "  • Run at startup if not already run today" -ForegroundColor White
-    Write-Host "  • Run daily at $Time as backup" -ForegroundColor White
-    Write-Host "  • Output method: $OutputMethod" -ForegroundColor White
+    Write-Host "  - Run at startup if not already run today" -ForegroundColor White
+    Write-Host "  - Run daily at $Time as backup" -ForegroundColor White
+    Write-Host "  - Output method: $OutputMethod" -ForegroundColor White
     Write-Host "`nTo test startup: Start-ScheduledTask -TaskName '$TaskName-Startup'" -ForegroundColor Cyan
     Write-Host "To test daily: Start-ScheduledTask -TaskName '$TaskName-Daily'" -ForegroundColor Cyan
     Write-Host "To remove: .\setup-startup-schedule.ps1 -Remove" -ForegroundColor Cyan

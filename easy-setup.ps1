@@ -38,8 +38,8 @@ function Get-TFSConfiguration {
     Write-Host "We need to know where your TFS server is located." -ForegroundColor White
     Write-Host ""
     Write-Host "Common examples:" -ForegroundColor Yellow
-    Write-Host "  • https://dev.azure.com/yourcompany" -ForegroundColor Gray
-    Write-Host "  • https://tfs.yourcompany.com/tfs/YourCollection" -ForegroundColor Gray
+    Write-Host "  - https://dev.azure.com/yourcompany" -ForegroundColor Gray
+    Write-Host "  - https://tfs.yourcompany.com/tfs/YourCollection" -ForegroundColor Gray
     Write-Host ""
 
     do {
@@ -254,9 +254,9 @@ function Get-AutomationPreference {
     Write-Host "Would you like to run the analysis automatically every day?" -ForegroundColor White
     Write-Host ""
     Write-Host "If yes, it will:" -ForegroundColor Yellow
-    Write-Host "  • Run once per day at your chosen time" -ForegroundColor White
-    Write-Host "  • Show you your tickets automatically" -ForegroundColor White
-    Write-Host "  • Save you time remembering to check" -ForegroundColor White
+    Write-Host "  - Run once per day at your chosen time" -ForegroundColor White
+    Write-Host "  - Show you your tickets automatically" -ForegroundColor White
+    Write-Host "  - Save you time remembering to check" -ForegroundColor White
     Write-Host ""
 
     $automate = Read-Host "Set up automatic daily analysis? (Y/N)"

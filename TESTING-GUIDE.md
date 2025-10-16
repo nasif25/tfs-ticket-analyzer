@@ -21,7 +21,7 @@ This guide helps you test the TFS Ticket Analyzer on different platforms.
 ### Test 1: Basic Setup
 
 ```powershell
-# Easy Setup Wizard (Recommended for beginners)
+# Easy Setup Wizard (Recommended - guides you through everything)
 .\easy-setup.ps1
 
 # OR Manual Setup
@@ -168,7 +168,11 @@ ls -l tfs-analyzer.sh tfs-scheduler.sh
 ### Test 2: Basic Setup (Bash Version)
 
 ```bash
-# Interactive setup
+# Easy Setup Wizard (Recommended - guides you through everything)
+chmod +x easy-setup.sh
+./easy-setup.sh
+
+# OR Manual Setup
 ./tfs-analyzer.sh setup
 
 # Test authentication
@@ -223,7 +227,10 @@ ls -l tfs-analyzer.sh tfs-scheduler.sh
 # Install dependencies
 pip install -r requirements.txt
 
-# Setup
+# Easy Setup Wizard (Recommended - cross-platform)
+python easy-setup.py
+
+# OR Manual Setup
 python tfs-analyzer.py --setup
 
 # Test authentication

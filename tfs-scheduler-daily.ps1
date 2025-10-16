@@ -13,7 +13,7 @@ $TaskName = "TFS-Daily-Ticket-Analysis-NoSMTP"
 if ($Remove) {
     Write-Host "Removing scheduled task..." -ForegroundColor Yellow
     try {
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
         Write-Host "Task '$TaskName' removed successfully!" -ForegroundColor Green
     } catch {
         Write-Host "Task may not exist or error occurred: $($_.Exception.Message)" -ForegroundColor Red
@@ -52,7 +52,7 @@ if (-not $isAdmin) {
 
 try {
     # Remove existing task if it exists
-    Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false -ErrorAction SilentlyContinue
+    Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 
     # Determine the PowerShell argument based on output method
     $Arguments = switch ($OutputMethod.ToLower()) {
@@ -75,8 +75,8 @@ try {
     $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
     
     # Register the task
-    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description "Daily TFS ticket analysis with $OutputMethod output (No SMTP required)"
-    
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description "Daily TFS ticket analysis with $OutputMethod output (No SMTP required)" | Out-Null
+
     Write-Host "Task created successfully!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Task Details:" -ForegroundColor Cyan
