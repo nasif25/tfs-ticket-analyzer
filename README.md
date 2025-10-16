@@ -204,6 +204,8 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 ## 🔄 Automation Setup
 
+> **⚠️ Important Limitation**: Each scheduler type maintains only ONE active configuration at a time. Running a scheduler script will **replace any existing schedule** with the new configuration. If you need multiple schedules with different preferences (e.g., different times, output methods, or AI modes), you'll need to manually create additional scheduled tasks/cron jobs with unique names.
+
 ### **Windows Automation**
 
 > **⚠️ Administrator Required**: Windows scheduler scripts must be run as Administrator.
