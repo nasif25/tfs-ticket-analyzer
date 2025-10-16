@@ -36,13 +36,29 @@ if (-not $AlreadyRan) {
 if ($ShouldRun) {
     Write-Host "Running TFS Ticket Analyzer - $Reason ($Today)" -ForegroundColor Green
 
-    # Build parameter based on output method
+    # Build parameter based on output method and AI setting
+    $NoAIFlag = "True" -eq "True"
     switch ("html".ToLower()) {
-        "browser" { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Browser }
-        "html" { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Html }
-        "text" { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Text }
-        "email" { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Email }
-        default { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Browser }
+        "browser" {
+            if ($NoAIFlag) { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Browser -NoAI }
+            else { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Browser }
+        }
+        "html" {
+            if ($NoAIFlag) { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Html -NoAI }
+            else { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Html }
+        }
+        "text" {
+            if ($NoAIFlag) { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Text -NoAI }
+            else { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Text }
+        }
+        "email" {
+            if ($NoAIFlag) { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Email -NoAI }
+            else { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Email }
+        }
+        default {
+            if ($NoAIFlag) { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Browser -NoAI }
+            else { & "C:\tipgit\tfs-ticket-analyzer\tfs-analyzer.ps1" 1 -Browser }
+        }
     }
 
     # Update the log file with current date and trigger info

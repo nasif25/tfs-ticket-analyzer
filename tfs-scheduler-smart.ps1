@@ -81,14 +81,29 @@ if (-not `$AlreadyRan) {
 if (`$ShouldRun) {
     Write-Host "Running TFS Ticket Analyzer - `$Reason (`$Today)" -ForegroundColor Green
 
-    # Build parameter based on output method
-    `$NoAIParam = if ("$NoAI" -eq "True") { "-NoAI" } else { "" }
+    # Build parameter based on output method and AI setting
+    `$NoAIFlag = "$NoAI" -eq "True"
     switch ("$OutputMethod".ToLower()) {
-        "browser" { & "$ScriptPath" 1 -Browser `$NoAIParam }
-        "html" { & "$ScriptPath" 1 -Html `$NoAIParam }
-        "text" { & "$ScriptPath" 1 -Text `$NoAIParam }
-        "email" { & "$ScriptPath" 1 -Email `$NoAIParam }
-        default { & "$ScriptPath" 1 -Browser `$NoAIParam }
+        "browser" {
+            if (`$NoAIFlag) { & "$ScriptPath" 1 -Browser -NoAI }
+            else { & "$ScriptPath" 1 -Browser }
+        }
+        "html" {
+            if (`$NoAIFlag) { & "$ScriptPath" 1 -Html -NoAI }
+            else { & "$ScriptPath" 1 -Html }
+        }
+        "text" {
+            if (`$NoAIFlag) { & "$ScriptPath" 1 -Text -NoAI }
+            else { & "$ScriptPath" 1 -Text }
+        }
+        "email" {
+            if (`$NoAIFlag) { & "$ScriptPath" 1 -Email -NoAI }
+            else { & "$ScriptPath" 1 -Email }
+        }
+        default {
+            if (`$NoAIFlag) { & "$ScriptPath" 1 -Browser -NoAI }
+            else { & "$ScriptPath" 1 -Browser }
+        }
     }
 
     # Update the log file with current date and trigger info
