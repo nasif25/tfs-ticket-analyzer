@@ -23,6 +23,7 @@ AUTH_METHOD=""
 PAT=""
 DISPLAY_NAME=""
 OUTPUT_METHOD=""
+NO_AI="false"
 AUTOMATION_TIME=""
 
 show_welcome() {
@@ -258,10 +259,35 @@ get_output_preference() {
     esac
 }
 
+get_ai_preference() {
+    echo ""
+    echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  Step 5: AI Analysis (Optional)${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${WHITE}Enable Claude AI for enhanced ticket analysis?${NC}"
+    echo ""
+    echo -e "${YELLOW}AI features include:${NC}"
+    echo -e "${GRAY}  - Intelligent priority assessment${NC}"
+    echo -e "${GRAY}  - Smart content summarization${NC}"
+    echo -e "${GRAY}  - Action recommendations${NC}"
+    echo ""
+    echo -e "${GRAY}Note: Requires Claude Code CLI (can be set up later)${NC}"
+    echo ""
+
+    read -p "Use AI analysis by default? (Y/N): " use_ai
+
+    if [[ "$use_ai" =~ ^[Yy]$ ]]; then
+        NO_AI="false"
+    else
+        NO_AI="true"
+    fi
+}
+
 get_automation_preference() {
     echo ""
     echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  Step 5: Automatic Daily Analysis (Optional)${NC}"
+    echo -e "${CYAN}  Step 6: Automatic Daily Analysis (Optional)${NC}"
     echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
     echo ""
     echo -e "${WHITE}Would you like to run the analysis automatically every day?${NC}"
@@ -373,12 +399,17 @@ setup_automation() {
     local scheduler_script="$SCRIPT_DIR/tfs-scheduler.sh"
 
     if [[ -f "$scheduler_script" ]]; then
-        if bash "$scheduler_script" --time "$AUTOMATION_TIME" --output "$OUTPUT_METHOD" &> /dev/null; then
+        local no_ai_flag=""
+        if [[ "$NO_AI" == "true" ]]; then
+            no_ai_flag="--no-ai"
+        fi
+
+        if bash "$scheduler_script" --time "$AUTOMATION_TIME" --output "$OUTPUT_METHOD" $no_ai_flag &> /dev/null; then
             echo -e "${GREEN}✓ Automation configured!${NC}"
         else
             echo -e "${YELLOW}⚠ Automation setup failed${NC}"
             echo -e "${WHITE}You can set it up later by running:${NC}"
-            echo -e "${GRAY}  ./tfs-scheduler.sh --time '$AUTOMATION_TIME' --output '$OUTPUT_METHOD'${NC}"
+            echo -e "${GRAY}  ./tfs-scheduler.sh --time '$AUTOMATION_TIME' --output '$OUTPUT_METHOD' $no_ai_flag${NC}"
         fi
     else
         echo -e "${YELLOW}⚠ Scheduler script not found${NC}"
@@ -436,7 +467,10 @@ main() {
     # Step 4: Output Preference
     get_output_preference
 
-    # Step 5: Automation
+    # Step 5: AI Preference
+    get_ai_preference
+
+    # Step 6: Automation
     get_automation_preference
 
     # Save configuration

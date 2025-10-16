@@ -123,6 +123,7 @@ python easy-setup.py
 - ✓ Authentication configuration (Azure CLI or PAT)
 - ✓ User preferences and display name
 - ✓ Output method selection
+- ✓ AI analysis preference (enable/disable Claude AI)
 - ✓ Optional daily automation
 - ✓ Connection testing
 
@@ -215,6 +216,9 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 # Daily at midnight with HTML output
 .\tfs-scheduler-daily.ps1 -Time "00:30" -OutputMethod html
+
+# Daily at 8:00 AM with AI disabled (traditional analysis only)
+.\tfs-scheduler-daily.ps1 -Time "08:00" -OutputMethod browser -NoAI
 ```
 
 **Smart Schedule (Recommended):**
@@ -224,6 +228,9 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 # With custom daily backup time
 .\tfs-scheduler-smart.ps1 -OutputMethod browser -Time "09:00"
+
+# With AI disabled (traditional analysis only)
+.\tfs-scheduler-smart.ps1 -OutputMethod browser -NoAI
 
 # Remove automation
 .\tfs-scheduler-smart.ps1 -Remove
@@ -245,6 +252,9 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 # Or specify time and output
 ./tfs-scheduler.sh --time 08:00 --output browser
 ./tfs-scheduler.sh --time 09:30 --output html
+
+# With AI disabled (traditional analysis only)
+./tfs-scheduler.sh --time 08:00 --output browser --no-ai
 
 # Remove automation
 ./tfs-scheduler.sh --remove

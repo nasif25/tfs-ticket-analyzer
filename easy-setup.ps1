@@ -245,10 +245,35 @@ function Get-OutputPreference {
     }
 }
 
+function Get-AIPreference {
+    Write-Host ""
+    Write-Host "════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "  Step 5: AI Analysis (Optional)" -ForegroundColor Cyan
+    Write-Host "════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Enable Claude AI for enhanced ticket analysis?" -ForegroundColor White
+    Write-Host ""
+    Write-Host "AI features include:" -ForegroundColor Yellow
+    Write-Host "  - Intelligent priority assessment" -ForegroundColor Gray
+    Write-Host "  - Smart content summarization" -ForegroundColor Gray
+    Write-Host "  - Action recommendations" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Note: Requires Claude Code CLI (can be set up later)" -ForegroundColor Gray
+    Write-Host ""
+
+    $useAI = Read-Host "Use AI analysis by default? (Y/N)"
+
+    if ($useAI -match '^[Yy]') {
+        return $false  # NoAI = false means AI is enabled
+    } else {
+        return $true   # NoAI = true means AI is disabled
+    }
+}
+
 function Get-AutomationPreference {
     Write-Host ""
     Write-Host "════════════════════════════════════════════════════" -ForegroundColor Cyan
-    Write-Host "  Step 5: Automatic Daily Analysis (Optional)" -ForegroundColor Cyan
+    Write-Host "  Step 6: Automatic Daily Analysis (Optional)" -ForegroundColor Cyan
     Write-Host "════════════════════════════════════════════════════" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Would you like to run the analysis automatically every day?" -ForegroundColor White
@@ -359,7 +384,8 @@ function Test-Configuration {
 function Setup-Automation {
     param(
         [string]$Time,
-        [string]$OutputMethod
+        [string]$OutputMethod,
+        [bool]$NoAI
     )
 
     Write-Host ""
@@ -377,18 +403,24 @@ function Setup-Automation {
         Write-Host "To set up automation:" -ForegroundColor White
         Write-Host "  1. Right-click PowerShell" -ForegroundColor Gray
         Write-Host "  2. Select 'Run as Administrator'" -ForegroundColor Gray
-        Write-Host "  3. Run: .\tfs-scheduler-daily.ps1 -Time '$Time' -OutputMethod '$OutputMethod'" -ForegroundColor Gray
+        $noAIFlag = if ($NoAI) { " -NoAI" } else { "" }
+        Write-Host "  3. Run: .\tfs-scheduler-daily.ps1 -Time '$Time' -OutputMethod '$OutputMethod'$noAIFlag" -ForegroundColor Gray
         Write-Host ""
         return
     }
 
     try {
-        & $schedulerScript -Time $Time -OutputMethod $OutputMethod
+        if ($NoAI) {
+            & $schedulerScript -Time $Time -OutputMethod $OutputMethod -NoAI
+        } else {
+            & $schedulerScript -Time $Time -OutputMethod $OutputMethod
+        }
         Write-Host "✓ Automation configured!" -ForegroundColor Green
     } catch {
         Write-Host "⚠ Automation setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
         Write-Host "You can set it up later by running:" -ForegroundColor White
-        Write-Host "  .\tfs-scheduler-daily.ps1 -Time '$Time' -OutputMethod '$OutputMethod'" -ForegroundColor Gray
+        $noAIFlag = if ($NoAI) { " -NoAI" } else { "" }
+        Write-Host "  .\tfs-scheduler-daily.ps1 -Time '$Time' -OutputMethod '$OutputMethod'$noAIFlag" -ForegroundColor Gray
     }
 }
 
@@ -457,7 +489,10 @@ try {
     # Step 4: Output Preference
     $config.OutputMethod = Get-OutputPreference
 
-    # Step 5: Automation
+    # Step 5: AI Preference
+    $config.NoAI = Get-AIPreference
+
+    # Step 6: Automation
     $automationTime = Get-AutomationPreference
     $config.Automation = $automationTime -ne $null
     $config.AutomationTime = $automationTime
@@ -480,7 +515,7 @@ try {
 
     # Setup automation if requested
     if ($config.Automation) {
-        Setup-Automation -Time $config.AutomationTime -OutputMethod $config.OutputMethod
+        Setup-Automation -Time $config.AutomationTime -OutputMethod $config.OutputMethod -NoAI $config.NoAI
     }
 
     # Show completion summary

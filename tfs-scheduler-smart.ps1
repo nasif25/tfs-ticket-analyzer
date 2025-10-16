@@ -4,6 +4,7 @@
 param(
     [string]$OutputMethod = "browser",
     [string]$Time = "08:00",
+    [switch]$NoAI = $false,
     [switch]$Remove
 )
 
@@ -38,6 +39,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 Write-Host "Setting up TFS Ticket Analyzer to run at startup..." -ForegroundColor Cyan
 Write-Host "Output Method: $OutputMethod" -ForegroundColor White
 Write-Host "Fallback Time: $Time" -ForegroundColor White
+Write-Host "AI Analysis: $(if ($NoAI) { 'Disabled' } else { 'Enabled (default)' })" -ForegroundColor White
 
 # Create wrapper script that handles both startup and daily triggers
 $WrapperScript = @"
@@ -80,12 +82,13 @@ if (`$ShouldRun) {
     Write-Host "Running TFS Ticket Analyzer - `$Reason (`$Today)" -ForegroundColor Green
 
     # Build parameter based on output method
+    `$NoAIParam = if ("$NoAI" -eq "True") { "-NoAI" } else { "" }
     switch ("$OutputMethod".ToLower()) {
-        "browser" { & "$ScriptPath" 1 -Browser }
-        "html" { & "$ScriptPath" 1 -Html }
-        "text" { & "$ScriptPath" 1 -Text }
-        "email" { & "$ScriptPath" 1 -Email }
-        default { & "$ScriptPath" 1 -Browser }
+        "browser" { & "$ScriptPath" 1 -Browser `$NoAIParam }
+        "html" { & "$ScriptPath" 1 -Html `$NoAIParam }
+        "text" { & "$ScriptPath" 1 -Text `$NoAIParam }
+        "email" { & "$ScriptPath" 1 -Email `$NoAIParam }
+        default { & "$ScriptPath" 1 -Browser `$NoAIParam }
     }
 
     # Update the log file with current date and trigger info
@@ -130,9 +133,11 @@ try {
     Write-Host "  - Run at startup if not already run today" -ForegroundColor White
     Write-Host "  - Run daily at $Time as backup" -ForegroundColor White
     Write-Host "  - Output method: $OutputMethod" -ForegroundColor White
+    Write-Host "  - AI Analysis: $(if ($NoAI) { 'Disabled' } else { 'Enabled' })" -ForegroundColor White
     Write-Host "`nTo test startup: Start-ScheduledTask -TaskName '$TaskName-Startup'" -ForegroundColor Cyan
     Write-Host "To test daily: Start-ScheduledTask -TaskName '$TaskName-Daily'" -ForegroundColor Cyan
-    Write-Host "To remove: .\setup-startup-schedule.ps1 -Remove" -ForegroundColor Cyan
+    Write-Host "To remove: .\tfs-scheduler-smart.ps1 -Remove" -ForegroundColor Cyan
+    Write-Host "`nDisable AI: .\tfs-scheduler-smart.ps1 -OutputMethod browser -NoAI" -ForegroundColor Yellow
 } catch {
     Write-Host "Failed to create scheduled task: $($_.Exception.Message)" -ForegroundColor Red
     exit 1

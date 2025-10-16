@@ -49,6 +49,7 @@ config = {
     'pat': '',
     'display_name': '',
     'output_method': '',
+    'no_ai': False,
     'automation_time': ''
 }
 
@@ -316,11 +317,36 @@ def get_output_preference():
     config['output_method'] = output_methods.get(choice, 'browser')
 
 
+def get_ai_preference():
+    """Get AI analysis preference"""
+    print()
+    print(f"{Colors.CYAN}════════════════════════════════════════════════════{Colors.NC}")
+    print(f"{Colors.CYAN}  Step 5: AI Analysis (Optional){Colors.NC}")
+    print(f"{Colors.CYAN}════════════════════════════════════════════════════{Colors.NC}")
+    print()
+    print(f"{Colors.WHITE}Enable Claude AI for enhanced ticket analysis?{Colors.NC}")
+    print()
+    print(f"{Colors.YELLOW}AI features include:{Colors.NC}")
+    print(f"{Colors.GRAY}  - Intelligent priority assessment{Colors.NC}")
+    print(f"{Colors.GRAY}  - Smart content summarization{Colors.NC}")
+    print(f"{Colors.GRAY}  - Action recommendations{Colors.NC}")
+    print()
+    print(f"{Colors.GRAY}Note: Requires Claude Code CLI (can be set up later){Colors.NC}")
+    print()
+
+    use_ai = input("Use AI analysis by default? (Y/N): ").strip().upper()
+
+    if use_ai in ['Y', 'YES']:
+        config['no_ai'] = False
+    else:
+        config['no_ai'] = True
+
+
 def get_automation_preference():
     """Get automation preference"""
     print()
     print(f"{Colors.CYAN}════════════════════════════════════════════════════{Colors.NC}")
-    print(f"{Colors.CYAN}  Step 5: Automatic Daily Analysis (Optional){Colors.NC}")
+    print(f"{Colors.CYAN}  Step 6: Automatic Daily Analysis (Optional){Colors.NC}")
     print(f"{Colors.CYAN}════════════════════════════════════════════════════{Colors.NC}")
     print()
     print(f"{Colors.WHITE}Would you like to run the analysis automatically every day?{Colors.NC}")
@@ -451,9 +477,12 @@ def setup_automation():
                     print()
                     return
 
-                subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass', '-File', str(scheduler_script),
-                              '-Time', config['automation_time'], '-OutputMethod', config['output_method']],
-                              check=True)
+                cmd_args = ['powershell', '-ExecutionPolicy', 'Bypass', '-File', str(scheduler_script),
+                           '-Time', config['automation_time'], '-OutputMethod', config['output_method']]
+                if config['no_ai']:
+                    cmd_args.append('-NoAI')
+
+                subprocess.run(cmd_args, check=True)
                 print(f"{Colors.GREEN}✓ Automation configured!{Colors.NC}")
             except Exception as e:
                 print(f"{Colors.YELLOW}⚠ Automation setup failed{Colors.NC}")
@@ -463,8 +492,12 @@ def setup_automation():
 
         if scheduler_script.exists():
             try:
-                subprocess.run(['bash', str(scheduler_script), '--time', config['automation_time'],
-                              '--output', config['output_method']],
+                cmd_args = ['bash', str(scheduler_script), '--time', config['automation_time'],
+                           '--output', config['output_method']]
+                if config['no_ai']:
+                    cmd_args.append('--no-ai')
+
+                subprocess.run(cmd_args,
                               check=True,
                               stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL)
@@ -472,7 +505,8 @@ def setup_automation():
             except Exception:
                 print(f"{Colors.YELLOW}⚠ Automation setup failed{Colors.NC}")
                 print(f"{Colors.WHITE}You can set it up later by running:{Colors.NC}")
-                print(f"{Colors.GRAY}  ./tfs-scheduler.sh --time '{config['automation_time']}' --output '{config['output_method']}'{Colors.NC}")
+                no_ai_flag = ' --no-ai' if config['no_ai'] else ''
+                print(f"{Colors.GRAY}  ./tfs-scheduler.sh --time '{config['automation_time']}' --output '{config['output_method']}'{no_ai_flag}{Colors.NC}")
 
 
 def show_completion_summary():
@@ -526,7 +560,10 @@ def main():
         # Step 4: Output Preference
         get_output_preference()
 
-        # Step 5: Automation
+        # Step 5: AI Preference
+        get_ai_preference()
+
+        # Step 6: Automation
         get_automation_preference()
 
         # Save configuration
