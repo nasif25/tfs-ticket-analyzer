@@ -206,6 +206,22 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 > **⚠️ Important Limitation**: Each scheduler type maintains only ONE active configuration at a time. Running a scheduler script will **replace any existing schedule** with the new configuration. If you need multiple schedules with different preferences (e.g., different times, output methods, or AI modes), you'll need to manually create additional scheduled tasks/cron jobs with unique names.
 
+> **ℹ️ Testing New Configurations**: The smart scheduler tracks "already ran today" using a log file that is **shared across all configurations** and is **not reset** when you overwrite a scheduler. When testing a new configuration:
+>
+> **Option 1**: Set the time a few minutes in the future - the daily trigger will run regardless of the log file
+>
+> **Option 2**: Manually delete the log file to test the startup trigger immediately
+>
+> ```powershell
+> # Windows PowerShell
+> Remove-Item (Join-Path $env:TEMP "tfs-analyzer-last-run.txt") -Force -ErrorAction SilentlyContinue
+> ```
+>
+> ```bash
+> # Linux/Mac
+> rm -f ~/.tfs-analyzer-last-run
+> ```
+
 ### **Windows Automation**
 
 > **⚠️ Administrator Required**: Windows scheduler scripts must be run as Administrator.
