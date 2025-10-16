@@ -5,6 +5,7 @@ param(
     [string]$Time = "08:00",
     [string]$ScriptPath = "",
     [string]$OutputMethod = "browser",
+    [switch]$NoAI = $false,
     [switch]$Remove = $false
 )
 
@@ -13,7 +14,7 @@ $TaskName = "TFS-Daily-Ticket-Analysis-NoSMTP"
 if ($Remove) {
     Write-Host "Removing scheduled task..." -ForegroundColor Yellow
     try {
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
         Write-Host "Task '$TaskName' removed successfully!" -ForegroundColor Green
     } catch {
         Write-Host "Task may not exist or error occurred: $($_.Exception.Message)" -ForegroundColor Red
@@ -39,6 +40,7 @@ Write-Host "Setting up daily TFS ticket analysis (No SMTP required)..." -Foregro
 Write-Host "Script: $ScriptPath" -ForegroundColor Gray
 Write-Host "Time: $Time daily" -ForegroundColor Gray
 Write-Host "Output Method: $OutputMethod" -ForegroundColor Gray
+Write-Host "AI Analysis: $(if ($NoAI) { 'Disabled' } else { 'Enabled (default)' })" -ForegroundColor Gray
 Write-Host ""
 
 # Check if running as administrator
@@ -52,14 +54,15 @@ if (-not $isAdmin) {
 
 try {
     # Remove existing task if it exists
-    Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false -ErrorAction SilentlyContinue
+    Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 
     # Determine the PowerShell argument based on output method
+    $NoAIFlag = if ($NoAI) { " -NoAI" } else { "" }
     $Arguments = switch ($OutputMethod.ToLower()) {
-        "browser" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Browser" }
-        "html" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Html" }
-        "text" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Text" }
-        default { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Browser" }
+        "browser" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Browser$NoAIFlag" }
+        "html" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Html$NoAIFlag" }
+        "text" { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Text$NoAIFlag" }
+        default { "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" 1 -Browser$NoAIFlag" }
     }
     
     # Create the action (what to run)
@@ -75,14 +78,16 @@ try {
     $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
     
     # Register the task
-    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description "Daily TFS ticket analysis with $OutputMethod output (No SMTP required)"
-    
+    $AIStatus = if ($NoAI) { "Traditional analysis" } else { "AI-enhanced" }
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description "Daily TFS ticket analysis with $OutputMethod output ($AIStatus, No SMTP required)" | Out-Null
+
     Write-Host "Task created successfully!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Task Details:" -ForegroundColor Cyan
     Write-Host "  Name: $TaskName"
     Write-Host "  Schedule: Daily at $Time"
     Write-Host "  Output: $OutputMethod"
+    Write-Host "  AI Analysis: $(if ($NoAI) { 'Disabled' } else { 'Enabled' })"
     Write-Host "  Script: $ScriptPath"
     Write-Host "  User: $env:USERNAME"
     Write-Host ""
@@ -124,3 +129,6 @@ Write-Host "Alternative Output Methods:" -ForegroundColor Cyan
 Write-Host "  Browser (default): .\tfs-scheduler-daily.ps1 -OutputMethod browser"
 Write-Host "  HTML file only:    .\tfs-scheduler-daily.ps1 -OutputMethod html"
 Write-Host "  Text file:         .\tfs-scheduler-daily.ps1 -OutputMethod text"
+Write-Host ""
+Write-Host "Disable AI Analysis:" -ForegroundColor Cyan
+Write-Host "  .\tfs-scheduler-daily.ps1 -Time 08:00 -OutputMethod browser -NoAI"

@@ -66,9 +66,14 @@ python tfs-analyzer.py 1 --no-ai -d              # AI disabled with debug
 - **`tfs-analyzer.py`** - Python version (works on all platforms)
 - **`tfs-analyzer.sh`** - Bash version (Linux/Mac native)
 
+### **Easy Setup Wizards (Recommended for Beginners)**
+- **`easy-setup.ps1`** - Windows PowerShell guided setup wizard
+- **`easy-setup.sh`** - Linux/macOS Bash guided setup wizard
+- **`easy-setup.py`** - Python cross-platform guided setup wizard
+
 ### **Automation Schedulers**
-- **`tfs-scheduler-daily.ps1`** - Windows daily automation
-- **`tfs-scheduler-smart.ps1`** - Windows smart scheduling (startup + daily)
+- **`tfs-scheduler-daily.ps1`** - Windows daily automation (requires Administrator)
+- **`tfs-scheduler-smart.ps1`** - Windows smart scheduling (requires Administrator)
 - **`tfs-scheduler.sh`** - Linux/Mac automation setup
 
 ### **Dependencies**
@@ -85,16 +90,40 @@ python tfs-analyzer.py 1 --no-ai -d              # AI disabled with debug
 
 ### 2. First-time Setup
 
-**🎯 For Beginners - Easy Setup Wizard (Windows Only):**
+**🎯 For Beginners - Easy Setup Wizard (Recommended):**
+
+**Windows PowerShell:**
 ```powershell
 # Interactive step-by-step setup wizard
 .\easy-setup.ps1
+
+# Note: If setting up automation, run PowerShell as Administrator
 ```
-This wizard will guide you through:
+
+**Linux/macOS Bash:**
+```bash
+# Make executable (first time only)
+chmod +x easy-setup.sh
+
+# Run interactive setup wizard
+./easy-setup.sh
+```
+
+**Python (All Platforms):**
+```bash
+# Install dependencies first
+pip install -r requirements.txt
+
+# Run interactive setup wizard
+python easy-setup.py
+```
+
+**The wizard will guide you through:**
 - ✓ TFS connection setup
 - ✓ Authentication configuration (Azure CLI or PAT)
-- ✓ User preferences
+- ✓ User preferences and display name
 - ✓ Output method selection
+- ✓ AI analysis preference (enable/disable Claude AI)
 - ✓ Optional daily automation
 - ✓ Connection testing
 
@@ -175,7 +204,12 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 ## 🔄 Automation Setup
 
+> **⚠️ Important Limitation**: Each scheduler type maintains only ONE active configuration at a time. Running a scheduler script will **replace any existing schedule** with the new configuration. If you need multiple schedules with different preferences (e.g., different times, output methods, or AI modes), you'll need to manually create additional scheduled tasks/cron jobs with unique names.
+
 ### **Windows Automation**
+
+> **⚠️ Administrator Required**: Windows scheduler scripts must be run as Administrator.
+> Right-click PowerShell → "Run as Administrator"
 
 **Daily Schedule (Fixed Time):**
 ```powershell
@@ -184,6 +218,9 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 # Daily at midnight with HTML output
 .\tfs-scheduler-daily.ps1 -Time "00:30" -OutputMethod html
+
+# Daily at 8:00 AM with AI disabled (traditional analysis only)
+.\tfs-scheduler-daily.ps1 -Time "08:00" -OutputMethod browser -NoAI
 ```
 
 **Smart Schedule (Recommended):**
@@ -193,6 +230,9 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 
 # With custom daily backup time
 .\tfs-scheduler-smart.ps1 -OutputMethod browser -Time "09:00"
+
+# With AI disabled (traditional analysis only)
+.\tfs-scheduler-smart.ps1 -OutputMethod browser -NoAI
 
 # Remove automation
 .\tfs-scheduler-smart.ps1 -Remove
@@ -214,6 +254,9 @@ python tfs-analyzer.py 1 -d --claude         # AI analysis with detailed output
 # Or specify time and output
 ./tfs-scheduler.sh --time 08:00 --output browser
 ./tfs-scheduler.sh --time 09:30 --output html
+
+# With AI disabled (traditional analysis only)
+./tfs-scheduler.sh --time 08:00 --output browser --no-ai
 
 # Remove automation
 ./tfs-scheduler.sh --remove

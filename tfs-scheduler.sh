@@ -41,6 +41,7 @@ Usage: $0 [OPTIONS]
 Options:
     --time TIME         Daily execution time in HH:MM format (default: 08:00)
     --output METHOD     Output method: browser|html|text|console (default: browser)
+    --no-ai             Disable Claude AI (traditional analysis only)
     --remove           Remove existing cron job
     --list             List existing cron jobs
     --help             Show this help message
@@ -54,6 +55,7 @@ Examples:
     $0 --time 09:00 --output browser     # Daily at 9 AM, open in browser
     $0 --time 18:00 --output email       # Daily at 6 PM, send email
     $0 --output html                     # Daily at 8 AM (default), save HTML
+    $0 --time 08:00 --output browser --no-ai  # Daily at 8 AM, no AI analysis
     $0 --remove                         # Remove automation
     $0 --list                          # Show current cron jobs
 
@@ -111,25 +113,27 @@ list_cron_jobs() {
 setup_daily_cron() {
     local time="$1"
     local output_method="$2"
-    
+    local no_ai="$3"
+
     local hour="${time%:*}"
     local minute="${time#*:}"
-    
+
     # Validate time format
     if ! [[ "$hour" =~ ^[0-9]{1,2}$ ]] || ! [[ "$minute" =~ ^[0-9]{2}$ ]]; then
         log_message "ERROR" "Invalid time format. Use HH:MM (e.g., 09:30)"
         exit 1
     fi
-    
+
     if [[ $hour -gt 23 ]] || [[ $minute -gt 59 ]]; then
         log_message "ERROR" "Invalid time values. Hour: 0-23, Minute: 0-59"
         exit 1
     fi
-    
+
     log_message "INFO" "Setting up daily cron job..."
     log_message "INFO" "Time: $time"
     log_message "INFO" "Output method: $output_method"
-    
+    log_message "INFO" "AI Analysis: $(if [[ "$no_ai" == "true" ]]; then echo "Disabled"; else echo "Enabled"; fi)"
+
     # Convert output method to appropriate flag
     local output_flag=""
     case "$output_method" in
@@ -141,17 +145,24 @@ setup_daily_cron() {
         *) output_flag="--browser" ;;
     esac
 
+    # Add no-ai flag if requested
+    local no_ai_flag=""
+    if [[ "$no_ai" == "true" ]]; then
+        no_ai_flag=" --no-ai"
+    fi
+
     # Create the cron entry
-    local cron_line="$minute $hour * * * $TFS_ANALYZER 1 $output_flag # TFS Analyzer Daily"
+    local cron_line="$minute $hour * * * $TFS_ANALYZER 1 $output_flag$no_ai_flag # TFS Analyzer Daily"
     
     # Add to crontab
     (crontab -l 2>/dev/null | grep -v "# TFS Analyzer"; echo "$cron_line") | crontab -
     
     log_message "SUCCESS" "Daily cron job created!"
     echo -e "${WHITE}  Schedule: Every day at $time${NC}"
-    echo -e "${WHITE}  Command: $TFS_ANALYZER 1 $output_flag${NC}"
+    echo -e "${WHITE}  Command: $TFS_ANALYZER 1 $output_flag$no_ai_flag${NC}"
+    echo -e "${WHITE}  AI Analysis: $(if [[ "$no_ai" == "true" ]]; then echo "Disabled"; else echo "Enabled"; fi)${NC}"
     echo
-    log_message "INFO" "To test immediately: $TFS_ANALYZER 1 $output_flag"
+    log_message "INFO" "To test immediately: $TFS_ANALYZER 1 $output_flag$no_ai_flag"
 }
 
 setup_startup_cron() {
@@ -386,8 +397,9 @@ interactive_setup() {
 main() {
     local time="08:00"
     local output_method="browser"
+    local no_ai="false"
     local action="setup"
-    
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -398,6 +410,10 @@ main() {
             --output)
                 output_method="$2"
                 shift 2
+                ;;
+            --no-ai)
+                no_ai="true"
+                shift
                 ;;
             --remove)
                 action="remove"
@@ -435,7 +451,7 @@ main() {
             else
                 # Non-interactive mode
                 remove_existing_jobs
-                setup_daily_cron "$time" "$output_method"
+                setup_daily_cron "$time" "$output_method" "$no_ai"
             fi
             ;;
     esac
